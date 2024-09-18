@@ -1,0 +1,49 @@
+.blog-container {
+    padding: 20px;
+    text-align: center;
+    background-image: url('../assets/images/mountain-1.jpg');
+    background-size: cover;
+    height: 100vh;
+  }
+  
+  .blog-background {
+    background-color: rgba(246, 249, 252, 0.932); /* White background with some transparency */
+    padding: 50px;
+    border-radius: 10px;
+    width: 100%;
+    max-width: 900px;
+    margin: 0 auto;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    height:80vh;
+  }
+
+  .blog-title {
+    font-size: 2.5rem;
+    margin-bottom: 40px;
+  }
+  
+  .posts-container {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+  }
+  
+  .post-title {
+    font-size: 1.75rem;
+    color: #007BFF;
+  }
+  
+  .post-description {
+    font-size: 1.2rem;
+    color: #555;
+  }
+  
+  .post-link {
+    text-decoration: none;
+    color: #007BFF;
+  }
+  
+  .post-link:hover {
+    text-decoration: underline;
+  }
+  
