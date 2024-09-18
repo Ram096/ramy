@@ -5,7 +5,7 @@ function Footer() {
     return (
         <footer className="footer-container">
             <div className="footer-bottom">
-                <p>© {new Date().getFullYear()} Website made by me with React.js. Check out the code on github</p>
+                <p>© {new Date().getFullYear()} Site created with React.js by Ramy Kassam</p>
             </div>
         </footer>
     );

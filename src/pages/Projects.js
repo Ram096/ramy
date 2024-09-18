@@ -40,6 +40,13 @@ const projects = [
     paperLink: foodmarketpdf,
     extraInfo: "https://www.kaggle.com/datasets/dermisfit/foodmart-dataset",
   },
+  {
+    title: "Universal Design Hub",
+    subtitle: "Website made with HTML and CSS, it explores ways to create environments that are accessible and usable by everyone",
+    description: "Discover the power of inclusive design. This website is dedicated to universal design principles, offering insights, resources, and solutions for creating products, environments, and systems that are accessible to everyone. Learn how thoughtful design can remove barriers, improve usability, and ensure equity for individuals of all abilities. Whether you're a designer, developer, or advocate, explore how universal design promotes innovation, accessibility, and a more inclusive world.",
+    sourceCodeLink: "https://github.com/Ram096/finalproject", 
+    projectLink: "https://ram096.github.io/finalproject/",
+  },
   
     // Add more projects as needed
   ];
