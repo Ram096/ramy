@@ -14,7 +14,7 @@
     max-width: 900px;
     margin: 0 auto;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    height:80vh;
+    height: 84vh;
   }
 
   .blog-title {
@@ -47,3 +47,30 @@
     text-decoration: underline;
   }
   
+  @media (max-width: 768px) {
+    .blog-title {
+        font-size: 2rem; /* Responsive font size */
+    }
+
+    .post-title {
+        font-size: 1.5rem; /* Responsive font size */
+    }
+
+    .post-description {
+        font-size: 0.9rem; /* Responsive font size */
+    }
+}
+
+@media (max-width: 480px) {
+    .blog-title {
+        font-size: 1.8rem; /* Smaller font for very small screens */
+    }
+
+    .post-title {
+        font-size: 1.3rem; /* Smaller font for very small screens */
+    }
+
+    .post-description {
+        font-size: 0.85rem; /* Smaller font for very small screens */
+    }
+}
