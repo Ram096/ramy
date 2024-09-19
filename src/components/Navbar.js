@@ -18,7 +18,7 @@ function Navbar() {
       <header className="App-header">
         <nav className="navbar">
       
-          <a href='/' className="logo">Ramy Kassam</a>
+        <Link to="/" className="logo">Ramy Kassam</Link>
           <ul className={`navMenu ${isActive ? 'active' : ''}`}>
             <li onClick={removeActive}>
               <Link to="/" className="navLink">Home</Link>
@@ -27,10 +27,10 @@ function Navbar() {
               <Link to="/projects" className="navLink">Projects</Link>
             </li>
             <li onClick={removeActive}>
-              <a href='/blog' className="navLink">Blog</a>
+              <Link to="/blog" className="navLink">Blog</Link>
             </li>
             <li onClick={removeActive}>
-              <a href='/resume' className="navLink">Resume</a>
+              <Link to="/resume" className="navLink">Resume</Link>
             </li>
           </ul>
           <div className={`hamburger ${isActive ? 'active' : ''}`} onClick={toggleActiveClass}>
