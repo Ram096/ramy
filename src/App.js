@@ -10,18 +10,18 @@ import UnderConstructionPage from './pages/404';
 
 function App() {
   return (
-    <Router>
-      <Navbar />  {/* Navbar appears on all pages */}
-      <Routes>
+  <Router basename={process.env.PUBLIC_URL}>
+    <Navbar />
+    <Routes>
       <Route path="/" element={<Home />} />
-      <Route path = "/projects" element = {<Projects/>} /> 
-      <Route path = "/blog" element = {<Blog/>} />
-      <Route path = "/resume" element = {<Resume/>}/>
-      <Route path = "/404:id" element = {<UnderConstructionPage/>}/>
-      <Route path="*" element={<UnderConstructionPage />} /> {/* Catch-all route for undefined paths */}
-      </Routes>
-      <Footer/>
-    </Router>
+      <Route path="/projects" element={<Projects />} />
+      <Route path="/blog" element={<Blog />} />
+      <Route path="/resume" element={<Resume />} />
+      <Route path="/404/:id" element={<UnderConstructionPage />} />
+      <Route path="*" element={<UnderConstructionPage />} />
+    </Routes>
+    <Footer />
+  </Router>
   );
 }
 
