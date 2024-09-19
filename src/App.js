@@ -18,7 +18,7 @@ function App() {
       <Route path = "/blog" element = {<Blog/>} />
       <Route path = "/resume" element = {<Resume/>}/>
       <Route path = "/404:id" element = {<UnderConstructionPage/>}/>
-      <Route path="*" element={<UnderConstructionPage />} /> {/* Catch-all route for undefined paths */}
+      <Route path="/404" element={<UnderConstructionPage />} /> {/* Catch-all route for undefined paths */}
       </Routes>
       <Footer/>
     </Router>
