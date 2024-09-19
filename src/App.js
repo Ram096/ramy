@@ -13,12 +13,12 @@ function App() {
     <Router>
       <Navbar />  {/* Navbar appears on all pages */}
       <Routes>
-      <Route path="/ramy" element={<Home />} />
+      <Route path="/" element={<Home />} />
       <Route path = "/projects" element = {<Projects/>} /> 
       <Route path = "/blog" element = {<Blog/>} />
       <Route path = "/resume" element = {<Resume/>}/>
       <Route path = "/404:id" element = {<UnderConstructionPage/>}/>
-      <Route path="/404" element={<UnderConstructionPage />} /> {/* Catch-all route for undefined paths */}
+      <Route path="*" element={<UnderConstructionPage />} /> {/* Catch-all route for undefined paths */}
       </Routes>
       <Footer/>
     </Router>
