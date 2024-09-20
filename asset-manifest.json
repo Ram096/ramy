@@ -1,6 +1,6 @@
 {
   "files": {
-    "main.css": "/ramy/static/css/main.d9858be2.css",
+    "main.css": "/ramy/static/css/main.677e5fb6.css",
     "main.js": "/ramy/static/js/main.46055e9d.js",
     "static/media/presentationdoughmasters.mp4": "/ramy/static/media/presentationdoughmasters.9c2d35092d71c5209812.mp4",
     "static/media/studyezpresentation.mp4": "/ramy/static/media/studyezpresentation.ece0d77e509bcfa1c7b1.mp4",
@@ -12,11 +12,11 @@
     "static/media/RAMY_KASSAM_RESUME.pdf": "/ramy/static/media/RAMY_KASSAM_RESUME.3a679f62a31b18bc67e1.pdf",
     "static/media/image_1.png": "/ramy/static/media/image_1.9d6b89e06fddddebbf61.png",
     "index.html": "/ramy/index.html",
-    "main.d9858be2.css.map": "/ramy/static/css/main.d9858be2.css.map",
+    "main.677e5fb6.css.map": "/ramy/static/css/main.677e5fb6.css.map",
     "main.46055e9d.js.map": "/ramy/static/js/main.46055e9d.js.map"
   },
   "entrypoints": [
-    "static/css/main.d9858be2.css",
+    "static/css/main.677e5fb6.css",
     "static/js/main.46055e9d.js"
   ]
 }
