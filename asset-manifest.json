@@ -1,7 +1,7 @@
 {
   "files": {
-    "main.css": "/ramy/static/css/main.4ea5d81d.css",
-    "main.js": "/ramy/static/js/main.46055e9d.js",
+    "main.css": "/ramy/static/css/main.747df34e.css",
+    "main.js": "/ramy/static/js/main.36643949.js",
     "static/media/presentationdoughmasters.mp4": "/ramy/static/media/presentationdoughmasters.9c2d35092d71c5209812.mp4",
     "static/media/studyezpresentation.mp4": "/ramy/static/media/studyezpresentation.ece0d77e509bcfa1c7b1.mp4",
     "static/media/Final_Report_Food_MartDataset.pdf": "/ramy/static/media/Final_Report_Food_MartDataset.c3f03e88886869245f8f.pdf",
@@ -12,11 +12,11 @@
     "static/media/RAMY_KASSAM_RESUME.pdf": "/ramy/static/media/RAMY_KASSAM_RESUME.3a679f62a31b18bc67e1.pdf",
     "static/media/image_1.png": "/ramy/static/media/image_1.9d6b89e06fddddebbf61.png",
     "index.html": "/ramy/index.html",
-    "main.4ea5d81d.css.map": "/ramy/static/css/main.4ea5d81d.css.map",
-    "main.46055e9d.js.map": "/ramy/static/js/main.46055e9d.js.map"
+    "main.747df34e.css.map": "/ramy/static/css/main.747df34e.css.map",
+    "main.36643949.js.map": "/ramy/static/js/main.36643949.js.map"
   },
   "entrypoints": [
-    "static/css/main.4ea5d81d.css",
-    "static/js/main.46055e9d.js"
+    "static/css/main.747df34e.css",
+    "static/js/main.36643949.js"
   ]
 }
