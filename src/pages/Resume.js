@@ -12,7 +12,7 @@ const Resume = () => {
           src={resumeUrl} 
           type="application/pdf" 
           width="100%" 
-          height="600px" 
+          height="800px" 
           style={{ border: 'none' }}
           aria-label="Resume"
         />
