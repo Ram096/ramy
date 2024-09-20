@@ -1,30 +1,24 @@
-body {
+/* Apply specific styling to the resume page without affecting other pages */
+.resume-page {
     display: flex;
     flex-direction: column;
-    min-height: 100vh;
-    margin: 0;
+    min-height: 100vh; /* Full viewport height */
 }
 
-.main-content {
-    flex: 1; /* This allows the content to take up available space */
+/* This will allow the resume content to take up all available space */
+.resume-container {
+    flex: 1;
+    padding: 20px;
 }
 
+/* Ensure the footer stays at the bottom */
 .footer-container {
     background-color: aliceblue;
     color: black;
     padding: 17px 0;
     text-align: center;
+    margin-top: auto; /* Pushes the footer to the bottom of the page */
 }
-
-.footer-section h3 {
-    font-size: 1.5rem;
-    margin-bottom: 15px;
-}
-
-.footer-section a:hover {
-    text-decoration: underline;
-}
-
 
 /* Media Query for smaller screens */
 @media (max-width: 768px) {
