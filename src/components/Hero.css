@@ -1,0 +1,80 @@
+.hero {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  background-color: var(--fuji-blue);
+  color: var(--cloud-white);
+}
+
+.hero-background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at top, var(--sky-blue) 0%, transparent 80%);
+  opacity: 0.5;
+  z-index: -1;
+}
+
+.hero-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.hero-title {
+  font-size: clamp(4rem, 10vw, 8rem);
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  background: linear-gradient(to right, var(--cloud-white), var(--sakura-pink));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: pulseText 4s ease-in-out infinite alternate;
+}
+
+.hero-subtitle {
+  font-size: clamp(1.2rem, 3vw, 2rem);
+  color: var(--cloud-white);
+  font-weight: 400;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-bottom: 1.5rem;
+}
+
+.hero-description {
+  max-width: 700px;
+  margin: 0 auto 3rem auto;
+  font-size: 1.1rem;
+  color: var(--cloud-white);
+  opacity: 0.9;
+}
+
+.hero-actions {
+  display: flex;
+  gap: 1.5rem;
+  justify-content: center;
+}
+
+.button-outline {
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.button-outline:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.hero-actions .button:first-child:hover {
+  background: var(--sakura-pink);
+  border-color: var(--sakura-pink);
+  color: var(--text-dark);
+}
+
+@keyframes pulseText {
+  0% { text-shadow: 0 0 20px rgba(255,255,255,0); }
+  100% { text-shadow: 0 0 30px rgba(255,255,255,0.1); }
+}
