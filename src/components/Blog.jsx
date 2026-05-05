@@ -8,27 +8,27 @@ const Blog = () => {
   const adventures = [
     {
       id: 'hiking',
-      src: '/images/quandarypeak2.jpg',
+      src: 'images/quandarypeak2.jpg',
       alt: 'Hiking in the mountains',
       caption: 'Hiking',
       description: 'Exploring the peaks and trails. The journey to the top is always worth the view.',
-      gallery: ['/images/quandarypeak2.jpg'] // Add more image paths here later!
+      gallery: ['images/quandarypeak2.jpg'] // Add more image paths here later!
     },
     {
       id: 'skiing',
-      src: '/images/loveland7.JPG',
+      src: 'images/loveland7.JPG',
       alt: 'Skiing down a snowy slope',
       caption: 'Skiing',
       description: 'Gliding through fresh powder.',
-      gallery: ['/images/loveland7.JPG'] // Add more image paths here later!
+      gallery: ['images/loveland7.JPG'] // Add more image paths here later!
     },
     {
       id: 'camping',
-      src: '/images/kellydahl8.jpg',
+      src: 'images/kellydahl8.jpg',
       alt: 'Camping under the stars',
       caption: 'Camping',
       description: 'Nothing like a campfire under the stars.',
-      gallery: ['/images/kellydahl8.jpg'] // Add more image paths here later!
+      gallery: ['images/kellydahl8.jpg'] // Add more image paths here later!
     },
   ];
 
@@ -70,7 +70,7 @@ const Blog = () => {
                 <div className="photo-gallery">
                   {adventures.map((adv, index) => (
                     <div key={index} className="photo-card" onClick={() => setSelectedAdventure(adv)}>
-                      <img src={adv.src} alt={adv.alt} loading="lazy" />
+                      <img src={`${import.meta.env.BASE_URL}${adv.src}`} alt={adv.alt} loading="lazy" />
                       <div className="photo-caption">{adv.caption}</div>
                     </div>
                   ))}
@@ -117,7 +117,7 @@ const Blog = () => {
             <div className="modal-gallery">
               {selectedAdventure.gallery.map((imgSrc, i) => (
                 <div key={i} className="modal-img-container">
-                  <img src={imgSrc} alt={`${selectedAdventure.caption} ${i + 1}`} loading="lazy" />
+                  <img src={`${import.meta.env.BASE_URL}${imgSrc}`} alt={`${selectedAdventure.caption} ${i + 1}`} loading="lazy" />
                 </div>
               ))}
             </div>
