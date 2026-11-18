@@ -1,0 +1,68 @@
+@import "tailwindcss";
+
+@theme {
+  --font-geist: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-silkscreen: 'Silkscreen', cursive;
+  --font-mono: 'Consolas', 'Courier New', ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    background-color: #000000;
+    color: #ffffff;
+    font-family: var(--font-geist);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+.font-silkscreen {
+  font-family: var(--font-silkscreen);
+}
+
+.font-geist {
+  font-family: var(--font-geist);
+}
+
+.font-cmd {
+  font-family: 'Consolas', 'Lucida Console', 'Courier New', monospace;
+}
+
+.scene-perspective {
+  perspective: 1400px;
+  perspective-origin: 50% 45%;
+}
+
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+
+@keyframes blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+.animate-blink {
+  animation: blink 1s infinite;
+}
+
+@keyframes leafSway {
+  0%, 100% {
+    transform: rotateZ(0deg);
+  }
+  50% {
+    transform: rotateZ(3deg);
+  }
+}
+
+.animate-leaf {
+  animation: leafSway 4.5s ease-in-out infinite;
+}
