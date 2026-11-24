@@ -194,6 +194,17 @@ const lovelandPhotos = [
   { src: "rockymountain06.JPG", trip: "Rocky Mountain", album: "rockymountain", title: "Wilderness Horizon", sub: "Subalpine Forest & Ridges" },
   { src: "rockymountain07.JPG", trip: "Rocky Mountain", album: "rockymountain", title: "Rocky Mountain Trail", sub: "Exploring the High Country" },
   { src: "rockymountain08.JPG", trip: "Rocky Mountain", album: "rockymountain", title: "Summit Ridge Memories", sub: "Rocky Mountain National Park, CO" },
+  // Quandary Peak Trip — 14,265 FT Colorado 14er (10 photos)
+  { src: "quandarypeak01.jpeg", trip: "Quandary Peak", album: "quandarypeak", title: "Quandary Peak Trailhead", sub: "Tenmile Range • Summit County, CO" },
+  { src: "quandarypeak02.JPG", trip: "Quandary Peak", album: "quandarypeak", title: "East Ridge Ascent", sub: "Climbing Above Timberline" },
+  { src: "quandarypeak03.jpeg", trip: "Quandary Peak", album: "quandarypeak", title: "Alpine Ridge Panorama", sub: "Tenmile & Mosquito Ranges" },
+  { src: "quandarypeak04.jpeg", trip: "Quandary Peak", album: "quandarypeak", title: "High Altitude Trail", sub: "Approaching 13,000 FT" },
+  { src: "quandarypeak05.jpeg", trip: "Quandary Peak", album: "quandarypeak", title: "Rocky Summit Pitch", sub: "Final Push to the 14er Summit" },
+  { src: "quandarypeak06.jpeg", trip: "Quandary Peak", album: "quandarypeak", title: "Quandary Peak Summit", sub: "Elevation 14,265 FT • Highest Peak of Tenmile Range" },
+  { src: "quandarypeak07.jpeg", trip: "Quandary Peak", album: "quandarypeak", title: "Continental Divide Views", sub: "Looking Across the Colorado 14ers" },
+  { src: "quandarypeak08.jpeg", trip: "Quandary Peak", album: "quandarypeak", title: "Blue River Valley Overlook", sub: "Breckenridge & Hoosier Pass Below" },
+  { src: "quandarypeak09.jpeg", trip: "Quandary Peak", album: "quandarypeak", title: "Above the Clouds", sub: "14,265 FT Alpine Horizon" },
+  { src: "quandarypeak10.jpeg", trip: "Quandary Peak", album: "quandarypeak", title: "Descent Along East Ridge", sub: "Wrapping Up a Colorado 14er" },
 ];
 
 const lovelandImages = [];
@@ -2045,10 +2056,11 @@ function drawGalleryHUD(g, w, h, photoIdx = 0, t = 0, albumId = "loveland", view
   g.fillText("Photo Gallery", 24, 31);
 
   const tabs = [
-    { id: "loveland", label: "Loveland Ski Area", x: 24, w: 205 },
-    { id: "basin", label: "Arapahoe Basin", x: 241, w: 185 },
-    { id: "bearlake", label: "Bear Lake", x: 438, w: 150 },
-    { id: "rockymountain", label: "Rocky Mountain", x: 600, w: 185 },
+    { id: "loveland", label: "Loveland Ski Area", x: 24, w: 195 },
+    { id: "basin", label: "Arapahoe Basin", x: 229, w: 175 },
+    { id: "bearlake", label: "Bear Lake", x: 414, w: 140 },
+    { id: "rockymountain", label: "Rocky Mountain", x: 564, w: 175 },
+    { id: "quandarypeak", label: "Quandary Peak", x: 749, w: 175 },
   ];
 
   const ty = 44;
@@ -2091,10 +2103,9 @@ function drawGalleryHUD(g, w, h, photoIdx = 0, t = 0, albumId = "loveland", view
   // 2. GRID VIEW: ALL PHOTOS FOR THE SELECTED TRIP
   // ------------------------------------------------------------------
   if (viewMode === "grid") {
-    const isCompact = albumId === "basin" || albumId === "bearlake" || albumId === "rockymountain";
-    const cols = isCompact ? 4 : 5;
-    const rows = isCompact ? 2 : 3;
-    const gap = isCompact ? 14 : 12;
+    const cols = (albumId === "basin" || albumId === "bearlake" || albumId === "rockymountain") ? 4 : 5;
+    const rows = albumId === "loveland" ? 3 : 2;
+    const gap = rows === 2 ? 14 : 12;
     const gridX = 24;
     const gridY = topBarH + 12;
     const gridW = w - 48;
@@ -4151,20 +4162,24 @@ export default function SciFiCockpit({ onExitToTerminal }) {
 
                 if (cy <= 92) {
                   // Top Bar: Trip Tabs & [ All Photos ] button
-                  if (cx >= 20 && cx <= 234) {
+                  if (cx >= 20 && cx <= 223) {
                     galleryAlbum = "loveland";
                     galleryViewMode = "grid";
                     galleryPhotoIdx = 0;
-                  } else if (cx >= 236 && cx <= 431) {
+                  } else if (cx >= 225 && cx <= 408) {
                     galleryAlbum = "basin";
                     galleryViewMode = "grid";
                     galleryPhotoIdx = 0;
-                  } else if (cx >= 433 && cx <= 593) {
+                  } else if (cx >= 410 && cx <= 558) {
                     galleryAlbum = "bearlake";
                     galleryViewMode = "grid";
                     galleryPhotoIdx = 0;
-                  } else if (cx >= 595 && cx <= 790) {
+                  } else if (cx >= 560 && cx <= 743) {
                     galleryAlbum = "rockymountain";
+                    galleryViewMode = "grid";
+                    galleryPhotoIdx = 0;
+                  } else if (cx >= 745 && cx <= 930) {
+                    galleryAlbum = "quandarypeak";
                     galleryViewMode = "grid";
                     galleryPhotoIdx = 0;
                   } else if (galleryViewMode === "single" && cx >= gw - 170) {
@@ -4172,10 +4187,9 @@ export default function SciFiCockpit({ onExitToTerminal }) {
                   }
                 } else if (galleryViewMode === "grid") {
                   // Grid View: click a photo thumbnail to open it full-size
-                  const isCompact = galleryAlbum === "basin" || galleryAlbum === "bearlake" || galleryAlbum === "rockymountain";
-                  const cols = isCompact ? 4 : 5;
-                  const rows = isCompact ? 2 : 3;
-                  const gap = isCompact ? 14 : 12;
+                  const cols = (galleryAlbum === "basin" || galleryAlbum === "bearlake" || galleryAlbum === "rockymountain") ? 4 : 5;
+                  const rows = galleryAlbum === "loveland" ? 3 : 2;
+                  const gap = rows === 2 ? 14 : 12;
                   const gridX = 24;
                   const gridY = 104;
                   const gridW = gw - 48;
