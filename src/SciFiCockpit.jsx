@@ -185,6 +185,15 @@ const lovelandPhotos = [
   { src: "bearlake05.jpeg", trip: "Bear Lake", album: "bearlake", title: "Continental Divide Peaks", sub: "Longs Peak & Keyboard of the Winds" },
   { src: "bearlake06.jpeg", trip: "Bear Lake", album: "bearlake", title: "Rocky Mountain Vista", sub: "Bear Lake Loop Trail" },
   { src: "bearlake07.jpeg", trip: "Bear Lake", album: "bearlake", title: "Golden Pines & Granite", sub: "High Country Backcountry Hike" },
+  // Rocky Mountain Trip (8 photos)
+  { src: "rockymountain.JPG", trip: "Rocky Mountain", album: "rockymountain", title: "Rocky Mountain National Park", sub: "Trail Ridge Road • Colorado" },
+  { src: "rockymountain02.JPG", trip: "Rocky Mountain", album: "rockymountain", title: "High Country Overlook", sub: "Continental Divide Panorama" },
+  { src: "rockymountain03.jpg", trip: "Rocky Mountain", album: "rockymountain", title: "Alpine Tundra Vista", sub: "Above Tree Line • 12,183 FT" },
+  { src: "rockymountain04.jpeg", trip: "Rocky Mountain", album: "rockymountain", title: "Mountain Valley Views", sub: "Forest Canyon Overlook" },
+  { src: "rockymountain05.JPG", trip: "Rocky Mountain", album: "rockymountain", title: "Granite Peaks & Sky", sub: "Front Range • Colorado Rockies" },
+  { src: "rockymountain06.JPG", trip: "Rocky Mountain", album: "rockymountain", title: "Wilderness Horizon", sub: "Subalpine Forest & Ridges" },
+  { src: "rockymountain07.JPG", trip: "Rocky Mountain", album: "rockymountain", title: "Rocky Mountain Trail", sub: "Exploring the High Country" },
+  { src: "rockymountain08.JPG", trip: "Rocky Mountain", album: "rockymountain", title: "Summit Ridge Memories", sub: "Rocky Mountain National Park, CO" },
 ];
 
 const lovelandImages = [];
@@ -2036,9 +2045,10 @@ function drawGalleryHUD(g, w, h, photoIdx = 0, t = 0, albumId = "loveland", view
   g.fillText("Photo Gallery", 24, 31);
 
   const tabs = [
-    { id: "loveland", label: "Loveland Ski Area", x: 24, w: 215 },
-    { id: "basin", label: "Arapahoe Basin", x: 251, w: 195 },
-    { id: "bearlake", label: "Bear Lake", x: 458, w: 165 },
+    { id: "loveland", label: "Loveland Ski Area", x: 24, w: 205 },
+    { id: "basin", label: "Arapahoe Basin", x: 241, w: 185 },
+    { id: "bearlake", label: "Bear Lake", x: 438, w: 150 },
+    { id: "rockymountain", label: "Rocky Mountain", x: 600, w: 185 },
   ];
 
   const ty = 44;
@@ -2081,7 +2091,7 @@ function drawGalleryHUD(g, w, h, photoIdx = 0, t = 0, albumId = "loveland", view
   // 2. GRID VIEW: ALL PHOTOS FOR THE SELECTED TRIP
   // ------------------------------------------------------------------
   if (viewMode === "grid") {
-    const isCompact = albumId === "basin" || albumId === "bearlake";
+    const isCompact = albumId === "basin" || albumId === "bearlake" || albumId === "rockymountain";
     const cols = isCompact ? 4 : 5;
     const rows = isCompact ? 2 : 3;
     const gap = isCompact ? 14 : 12;
@@ -4141,16 +4151,20 @@ export default function SciFiCockpit({ onExitToTerminal }) {
 
                 if (cy <= 92) {
                   // Top Bar: Trip Tabs & [ All Photos ] button
-                  if (cx >= 20 && cx <= 242) {
+                  if (cx >= 20 && cx <= 234) {
                     galleryAlbum = "loveland";
                     galleryViewMode = "grid";
                     galleryPhotoIdx = 0;
-                  } else if (cx >= 246 && cx <= 450) {
+                  } else if (cx >= 236 && cx <= 431) {
                     galleryAlbum = "basin";
                     galleryViewMode = "grid";
                     galleryPhotoIdx = 0;
-                  } else if (cx >= 454 && cx <= 630) {
+                  } else if (cx >= 433 && cx <= 593) {
                     galleryAlbum = "bearlake";
+                    galleryViewMode = "grid";
+                    galleryPhotoIdx = 0;
+                  } else if (cx >= 595 && cx <= 790) {
+                    galleryAlbum = "rockymountain";
                     galleryViewMode = "grid";
                     galleryPhotoIdx = 0;
                   } else if (galleryViewMode === "single" && cx >= gw - 170) {
@@ -4158,7 +4172,7 @@ export default function SciFiCockpit({ onExitToTerminal }) {
                   }
                 } else if (galleryViewMode === "grid") {
                   // Grid View: click a photo thumbnail to open it full-size
-                  const isCompact = galleryAlbum === "basin" || galleryAlbum === "bearlake";
+                  const isCompact = galleryAlbum === "basin" || galleryAlbum === "bearlake" || galleryAlbum === "rockymountain";
                   const cols = isCompact ? 4 : 5;
                   const rows = isCompact ? 2 : 3;
                   const gap = isCompact ? 14 : 12;
