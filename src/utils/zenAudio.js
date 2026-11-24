@@ -1,115 +1,139 @@
-// Synthesizes a calming, ethereal ambient drone & gentle water/chime breeze using Web Audio API
+// Full-Length Music Player Engine for Ramy's Cockpit Website
+// Plays full songs from public/dumbai.m4a and public/bienvenidos.m4a
 
-class ZenAudioEngine {
+export const PLAYLIST_TRACKS = [
+  {
+    id: 'dumbai',
+    title: 'DUMBAI',
+    artist: 'CA7RIEL & Paco Amoroso',
+    display: 'DUMBAI — CA7RIEL & Paco Amoroso',
+    src: 'dumbai.m4a',
+  },
+  {
+    id: 'bienvenidos',
+    title: 'Bienvenidos a la Tierra',
+    artist: 'Rawayana',
+    display: 'Bienvenidos a la Tierra — Rawayana',
+    src: 'bienvenidos.m4a',
+  },
+]
+
+class MusicPlayerEngine {
   constructor() {
-    this.ctx = null
     this.isPlaying = false
-    this.nodes = []
-    this.intervalId = null
+    this.currentIndex = 0
+    this.audio = null
+    this.listeners = new Set()
   }
 
-  init() {
-    if (!this.ctx) {
-      const AudioCtx = window.AudioContext || window.webkitAudioContext
-      if (AudioCtx) {
-        this.ctx = new AudioCtx()
-      }
+  subscribe(fn) {
+    this.listeners.add(fn)
+    // Immediately emit current state to the new subscriber
+    try {
+      fn({
+        isPlaying: this.isPlaying,
+        currentIndex: this.currentIndex,
+        currentTrack: PLAYLIST_TRACKS[this.currentIndex],
+      })
+    } catch (_) {}
+    return () => this.listeners.delete(fn)
+  }
+
+  notify() {
+    const state = {
+      isPlaying: this.isPlaying,
+      currentIndex: this.currentIndex,
+      currentTrack: PLAYLIST_TRACKS[this.currentIndex],
+    }
+    this.listeners.forEach((fn) => {
+      try {
+        fn(state)
+      } catch (_) {}
+    })
+  }
+
+  getCurrentTrack() {
+    return PLAYLIST_TRACKS[this.currentIndex]
+  }
+
+  resolveStreams() {
+    // Local full-length audio files are bundled directly in public/
+  }
+
+  ensureAudio() {
+    if (!this.audio && typeof window !== 'undefined') {
+      this.audio = new Audio()
+      this.audio.preload = 'auto'
+      this.audio.volume = 0.8
+      this.audio.addEventListener('play', () => {
+        this.isPlaying = true
+        this.notify()
+      })
+      this.audio.addEventListener('playing', () => {
+        this.isPlaying = true
+        this.notify()
+      })
+      this.audio.addEventListener('pause', () => {
+        // Only mark paused if it wasn't just ended/advancing tracks
+        if (!this.audio.ended) {
+          this.isPlaying = false
+          this.notify()
+        }
+      })
+      this.audio.addEventListener('ended', () => {
+        this.nextTrack(true)
+      })
+    }
+    return this.audio
+  }
+
+  async playCurrent() {
+    const audio = this.ensureAudio()
+    if (!audio) return
+
+    this.isPlaying = true
+    this.notify()
+
+    const track = PLAYLIST_TRACKS[this.currentIndex]
+    if (!audio.src || !audio.src.endsWith(track.src)) {
+      audio.src = track.src
+    }
+
+    try {
+      await audio.play()
+      this.isPlaying = !audio.paused
+      this.notify()
+    } catch (err) {
+      // Ignore AbortError when interrupted by rapid toggle/remount; check actual audio.paused state
+      if (err && err.name === 'AbortError') return
+      this.isPlaying = !audio.paused
+      this.notify()
     }
   }
 
   start() {
-    this.init()
-    if (!this.ctx) return
-    if (this.ctx.state === 'suspended') {
-      this.ctx.resume()
+    const audio = this.ensureAudio()
+    if (this.isPlaying && audio && !audio.paused) {
+      this.notify()
+      return
     }
-    if (this.isPlaying) return
-
-    this.isPlaying = true
-
-    // Warm ambient pad chord (Pentatonic: D, F#, A, B, E)
-    const baseFreqs = [146.83, 220.0, 293.66, 370.0, 440.0]
-    
-    // Master gain
-    const masterGain = this.ctx.createGain()
-    masterGain.gain.setValueAtTime(0.001, this.ctx.currentTime)
-    masterGain.gain.exponentialRampToValueAtTime(0.12, this.ctx.currentTime + 3)
-    masterGain.connect(this.ctx.destination)
-    this.nodes.push(masterGain)
-
-    // Ethereal low drone
-    baseFreqs.forEach((freq, idx) => {
-      const osc = this.ctx.createOscillator()
-      const gain = this.ctx.createGain()
-      const panner = this.ctx.createStereoPanner ? this.ctx.createStereoPanner() : null
-
-      osc.type = idx % 2 === 0 ? 'sine' : 'triangle'
-      osc.frequency.setValueAtTime(freq, this.ctx.currentTime)
-
-      // Slight vibrato / detune
-      osc.detune.setValueAtTime((Math.random() - 0.5) * 8, this.ctx.currentTime)
-
-      gain.gain.setValueAtTime(0.04 / (idx + 1), this.ctx.currentTime)
-
-      if (panner) {
-        panner.pan.setValueAtTime((idx / baseFreqs.length) * 1.6 - 0.8, this.ctx.currentTime)
-        osc.connect(gain)
-        gain.connect(panner)
-        panner.connect(masterGain)
-      } else {
-        osc.connect(gain)
-        gain.connect(masterGain)
-      }
-
-      osc.start()
-      this.nodes.push(osc, gain)
-    })
-
-    // Random gentle chime notes
-    const chimePitches = [587.33, 659.25, 739.99, 880.0, 987.77, 1174.66]
-    this.intervalId = setInterval(() => {
-      if (!this.isPlaying || !this.ctx) return
-      const pitch = chimePitches[Math.floor(Math.random() * chimePitches.length)]
-      const chimeOsc = this.ctx.createOscillator()
-      const chimeGain = this.ctx.createGain()
-
-      chimeOsc.type = 'sine'
-      chimeOsc.frequency.setValueAtTime(pitch, this.ctx.currentTime)
-
-      chimeGain.gain.setValueAtTime(0.001, this.ctx.currentTime)
-      chimeGain.gain.exponentialRampToValueAtTime(0.03, this.ctx.currentTime + 0.1)
-      chimeGain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + 2.5)
-
-      chimeOsc.connect(chimeGain)
-      chimeGain.connect(masterGain)
-
-      chimeOsc.start(this.ctx.currentTime)
-      chimeOsc.stop(this.ctx.currentTime + 2.6)
-    }, 3800)
+    this.playCurrent()
   }
 
   stop() {
-    if (!this.isPlaying) return
     this.isPlaying = false
-
-    if (this.intervalId) {
-      clearInterval(this.intervalId)
-      this.intervalId = null
+    if (this.audio) {
+      try {
+        this.audio.pause()
+      } catch (_) {}
     }
-
-    if (this.ctx) {
-      this.nodes.forEach(node => {
-        try {
-          if (node.stop) node.stop()
-          node.disconnect()
-        } catch (_) {}
-      })
-      this.nodes = []
-    }
+    this.notify()
   }
 
   toggle() {
-    if (this.isPlaying) {
+    const audio = this.ensureAudio()
+    const actuallyPlaying = this.isPlaying && audio && !audio.paused
+    if (actuallyPlaying) {
       this.stop()
       return false
     } else {
@@ -117,6 +141,37 @@ class ZenAudioEngine {
       return true
     }
   }
+
+  nextTrack(autoKeepPlaying = false) {
+    const shouldPlay = this.isPlaying || autoKeepPlaying
+    this.currentIndex = (this.currentIndex + 1) % PLAYLIST_TRACKS.length
+    if (this.audio) {
+      const track = PLAYLIST_TRACKS[this.currentIndex]
+      this.audio.src = track.src
+      this.audio.currentTime = 0
+    }
+    if (shouldPlay) {
+      this.playCurrent()
+    } else {
+      this.notify()
+    }
+  }
+
+  prevTrack() {
+    const shouldPlay = this.isPlaying
+    this.currentIndex =
+      (this.currentIndex - 1 + PLAYLIST_TRACKS.length) % PLAYLIST_TRACKS.length
+    if (this.audio) {
+      const track = PLAYLIST_TRACKS[this.currentIndex]
+      this.audio.src = track.src
+      this.audio.currentTime = 0
+    }
+    if (shouldPlay) {
+      this.playCurrent()
+    } else {
+      this.notify()
+    }
+  }
 }
 
-export const zenAudio = new ZenAudioEngine()
+export const zenAudio = new MusicPlayerEngine()

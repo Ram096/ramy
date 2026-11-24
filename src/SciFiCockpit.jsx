@@ -2769,6 +2769,767 @@ function updateAndDrawGameHUD(g, w, h, dt = 0.016, t = 0, playSound = null) {
 }
 
 /* ------------------------------------------------------------------ */
+/*  3D First-Person Shooter: "BACKROOMS // RAMY NEXTBOT" — Variant 8   */
+/* ------------------------------------------------------------------ */
+const BACKROOMS_MAP = [
+  [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+  [1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1],
+  [1, 0, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1],
+  [1, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1],
+  [1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1],
+  [1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1],
+  [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1],
+  [1, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0, 1],
+  [1, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1],
+  [1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 0, 1],
+  [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1],
+  [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+];
+const BR_MAP_SIZE = 12;
+
+const backroomsGame = {
+  state: "title", // 'title' | 'playing' | 'gameover'
+  px: 1.5,
+  py: 1.5,
+  pa: 0.4,
+  hp: 100,
+  score: 0,
+  highScore: 0,
+  kills: 0,
+  wave: 1,
+  keys: { up: false, down: false, left: false, right: false, strafeL: false, strafeR: false },
+  mouseTurnVel: 0,
+  entities: [],
+  particles: [],
+  spawnTimer: 0,
+  muzzleTimer: 0,
+  gunKick: 0,
+  hurtTimer: 0,
+  walkPhase: 0,
+  zBuffer: new Float32Array(200),
+};
+
+function isBackroomsWall(x, y) {
+  const mx = Math.floor(x);
+  const my = Math.floor(y);
+  if (mx < 0 || mx >= BR_MAP_SIZE || my < 0 || my >= BR_MAP_SIZE) return true;
+  return BACKROOMS_MAP[my][mx] !== 0;
+}
+
+function spawnBackroomsEntity() {
+  // Pick a random open cell at least 3.2 units away from the player
+  const candidates = [];
+  for (let y = 1; y < BR_MAP_SIZE - 1; y++) {
+    for (let x = 1; x < BR_MAP_SIZE - 1; x++) {
+      if (BACKROOMS_MAP[y][x] === 0) {
+        const cx = x + 0.5;
+        const cy = y + 0.5;
+        if (Math.hypot(cx - backroomsGame.px, cy - backroomsGame.py) > 3.0) {
+          candidates.push({ x: cx, y: cy });
+        }
+      }
+    }
+  }
+  const spot = candidates.length > 0
+    ? candidates[Math.floor(Math.random() * candidates.length)]
+    : { x: 10.5, y: 10.5 };
+  const variant = Math.floor(Math.random() * 3);
+  const isBoss = variant === 2 && backroomsGame.wave >= 2;
+  backroomsGame.entities.push({
+    x: spot.x,
+    y: spot.y,
+    variant,
+    hp: isBoss ? 4 : 2,
+    maxHp: isBoss ? 4 : 2,
+    speed: (variant === 1 ? 1.55 : isBoss ? 1.15 : 1.32) + backroomsGame.wave * 0.08,
+    hitFlash: 0,
+    bobOffset: Math.random() * Math.PI * 2,
+    scale: isBoss ? 1.18 : 0.95,
+  });
+}
+
+function startBackroomsGame() {
+  backroomsGame.state = "playing";
+  backroomsGame.px = 1.5;
+  backroomsGame.py = 1.5;
+  backroomsGame.pa = 0.35;
+  backroomsGame.hp = 100;
+  backroomsGame.score = 0;
+  backroomsGame.kills = 0;
+  backroomsGame.wave = 1;
+  backroomsGame.entities = [];
+  backroomsGame.particles = [];
+  backroomsGame.muzzleTimer = 0;
+  backroomsGame.gunKick = 0;
+  backroomsGame.hurtTimer = 0;
+  backroomsGame.spawnTimer = 0.5;
+  for (let i = 0; i < 3; i++) spawnBackroomsEntity();
+}
+
+function fireBackroomsWeapon(playSound = null) {
+  if (backroomsGame.state !== "playing") {
+    startBackroomsGame();
+    if (playSound) playSound(520, 0.07);
+    return;
+  }
+  if (backroomsGame.gunKick > 0.45) return; // fire rate cooldown
+  backroomsGame.muzzleTimer = 0.09;
+  backroomsGame.gunKick = 1.0;
+  if (playSound) playSound(180, 0.06);
+
+  // Check if any visible entity is near the center crosshair
+  let bestIdx = -1;
+  let bestDist = 999;
+
+  for (let i = 0; i < backroomsGame.entities.length; i++) {
+    const ent = backroomsGame.entities[i];
+    const dx = ent.x - backroomsGame.px;
+    const dy = ent.y - backroomsGame.py;
+    const dist = Math.hypot(dx, dy);
+    let ang = Math.atan2(dy, dx) - backroomsGame.pa;
+    while (ang < -Math.PI) ang += Math.PI * 2;
+    while (ang > Math.PI) ang -= Math.PI * 2;
+
+    // Angular hitbox scales with distance
+    const hitCone = Math.atan2(0.45 * ent.scale, Math.max(0.4, dist));
+    if (Math.abs(ang) <= hitCone + 0.06 && dist < bestDist) {
+      // Check line-of-sight wall occlusion
+      const steps = Math.ceil(dist * 6);
+      let blocked = false;
+      for (let s = 1; s < steps; s++) {
+        const tx = backroomsGame.px + (dx * s) / steps;
+        const ty = backroomsGame.py + (dy * s) / steps;
+        if (isBackroomsWall(tx, ty)) {
+          blocked = true;
+          break;
+        }
+      }
+      if (!blocked) {
+        bestDist = dist;
+        bestIdx = i;
+      }
+    }
+  }
+
+  if (bestIdx !== -1) {
+    const target = backroomsGame.entities[bestIdx];
+    target.hp -= 1;
+    target.hitFlash = 0.18;
+    // Knockback away from player
+    const dx = target.x - backroomsGame.px;
+    const dy = target.y - backroomsGame.py;
+    const d = Math.hypot(dx, dy) || 1;
+    const kx = target.x + (dx / d) * 0.32;
+    const ky = target.y + (dy / d) * 0.32;
+    if (!isBackroomsWall(kx, target.y)) target.x = kx;
+    if (!isBackroomsWall(target.x, ky)) target.y = ky;
+
+    if (target.hp <= 0) {
+      backroomsGame.kills += 1;
+      backroomsGame.score += target.maxHp * 100;
+      if (backroomsGame.score > backroomsGame.highScore) {
+        backroomsGame.highScore = backroomsGame.score;
+      }
+      backroomsGame.wave = 1 + Math.floor(backroomsGame.kills / 4);
+      backroomsGame.entities.splice(bestIdx, 1);
+      if (playSound) playSound(320, 0.08);
+      spawnBackroomsEntity();
+    } else if (playSound) {
+      playSound(440, 0.04);
+    }
+  }
+}
+
+function updateAndDrawBackroomsHUD(g, w, h, dt = 0.016, t = 0, playSound = null) {
+  g.save();
+
+  // Hurt / jump-scare screen shake
+  if (backroomsGame.hurtTimer > 0) {
+    backroomsGame.hurtTimer = Math.max(0, backroomsGame.hurtTimer - dt);
+    g.translate((Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12);
+  }
+
+  // ------------------------------------------------------------------
+  // 1. UPDATE PLAYER & ENTITIES
+  // ------------------------------------------------------------------
+  if (backroomsGame.state === "playing") {
+    const turnSpd = 2.35;
+    const moveSpd = 2.65;
+
+    if (backroomsGame.keys.left) backroomsGame.pa -= turnSpd * dt;
+    if (backroomsGame.keys.right) backroomsGame.pa += turnSpd * dt;
+    if (Math.abs(backroomsGame.mouseTurnVel) > 0.001) {
+      backroomsGame.pa += backroomsGame.mouseTurnVel * dt;
+      backroomsGame.mouseTurnVel *= Math.exp(-dt * 14);
+    }
+
+    let moveX = 0;
+    let moveY = 0;
+    const cosA = Math.cos(backroomsGame.pa);
+    const sinA = Math.sin(backroomsGame.pa);
+
+    if (backroomsGame.keys.up) {
+      moveX += cosA * moveSpd * dt;
+      moveY += sinA * moveSpd * dt;
+    }
+    if (backroomsGame.keys.down) {
+      moveX -= cosA * moveSpd * dt;
+      moveY -= sinA * moveSpd * dt;
+    }
+    if (backroomsGame.keys.strafeL) {
+      moveX += sinA * moveSpd * 0.85 * dt;
+      moveY -= cosA * moveSpd * 0.85 * dt;
+    }
+    if (backroomsGame.keys.strafeR) {
+      moveX -= sinA * moveSpd * 0.85 * dt;
+      moveY += cosA * moveSpd * 0.85 * dt;
+    }
+
+    if (Math.hypot(moveX, moveY) > 0.0001) {
+      backroomsGame.walkPhase += dt * 10;
+    }
+
+    const pad = 0.24;
+    const nx = backroomsGame.px + moveX;
+    const ny = backroomsGame.py + moveY;
+    if (!isBackroomsWall(nx + Math.sign(moveX) * pad, backroomsGame.py)) {
+      backroomsGame.px = nx;
+    }
+    if (!isBackroomsWall(backroomsGame.px, ny + Math.sign(moveY) * pad)) {
+      backroomsGame.py = ny;
+    }
+
+    // Spawn additional Ramy Face Nextbots over time
+    backroomsGame.spawnTimer -= dt;
+    const maxEntities = Math.min(6, 3 + Math.floor(backroomsGame.wave / 2));
+    if (backroomsGame.spawnTimer <= 0) {
+      backroomsGame.spawnTimer = Math.max(1.8, 3.8 - backroomsGame.wave * 0.25);
+      if (backroomsGame.entities.length < maxEntities) {
+        spawnBackroomsEntity();
+      }
+    }
+
+    // Update chasing Ramy Entities
+    for (const ent of backroomsGame.entities) {
+      if (ent.hitFlash > 0) ent.hitFlash = Math.max(0, ent.hitFlash - dt);
+      const dx = backroomsGame.px - ent.x;
+      const dy = backroomsGame.py - ent.y;
+      const dist = Math.hypot(dx, dy) || 1;
+
+      if (dist > 0.42) {
+        const stepX = (dx / dist) * ent.speed * dt;
+        const stepY = (dy / dist) * ent.speed * dt;
+        // Slide along walls so the entity hunts smoothly around corners
+        if (!isBackroomsWall(ent.x + stepX, ent.y)) {
+          ent.x += stepX;
+        }
+        if (!isBackroomsWall(ent.x, ent.y + stepY)) {
+          ent.y += stepY;
+        }
+      }
+
+      // Damage player if the giant Ramy face catches up!
+      if (dist < 0.58) {
+        backroomsGame.hp -= 28 * dt;
+        if (backroomsGame.hurtTimer <= 0) {
+          backroomsGame.hurtTimer = 0.25;
+          if (playSound) playSound(140, 0.08);
+        }
+        if (backroomsGame.hp <= 0) {
+          backroomsGame.hp = 0;
+          backroomsGame.state = "gameover";
+        }
+      }
+    }
+  } else {
+    // Attract / Demo camera patrol through the Backrooms when on title/gameover screen
+    backroomsGame.px = 3.5 + Math.cos(t * 0.35) * 0.35;
+    backroomsGame.py = 3.5 + Math.sin(t * 0.35) * 0.35;
+    backroomsGame.pa = t * 0.42;
+    if (backroomsGame.entities.length === 0) {
+      backroomsGame.entities.push(
+        { x: 3.5, y: 5.5, variant: 0, hp: 2, maxHp: 2, speed: 0, hitFlash: 0, bobOffset: 0, scale: 1.05 },
+        { x: 5.5, y: 3.5, variant: 1, hp: 2, maxHp: 2, speed: 0, hitFlash: 0, bobOffset: 2.1, scale: 1.0 }
+      );
+    }
+  }
+
+  if (backroomsGame.muzzleTimer > 0) backroomsGame.muzzleTimer = Math.max(0, backroomsGame.muzzleTimer - dt);
+  if (backroomsGame.gunKick > 0) backroomsGame.gunKick = Math.max(0, backroomsGame.gunKick - dt * 3.6);
+
+  // ------------------------------------------------------------------
+  // 2. CEILING (FLUORESCENT TILES) & DAMP CARPET FLOOR
+  // ------------------------------------------------------------------
+  const bobY = backroomsGame.state === "playing" ? Math.sin(backroomsGame.walkPhase) * 5 : 0;
+  const horizon = Math.round(h * 0.5 + bobY);
+
+  // Suspended acoustic ceiling gradient
+  const ceilGrd = g.createLinearGradient(0, 0, 0, horizon);
+  ceilGrd.addColorStop(0, "#6e6535");
+  ceilGrd.addColorStop(0.55, "#3f391c");
+  ceilGrd.addColorStop(1, "#121007");
+  g.fillStyle = ceilGrd;
+  g.fillRect(0, 0, w, horizon);
+
+  // Glowing fluorescent ceiling light strips in perspective
+  for (let row = 1; row <= 4; row++) {
+    const ly = Math.round(horizon - (horizon * 0.78) / (row * 0.75));
+    const lw = Math.round(w * (0.36 / row));
+    const lh = Math.max(3, Math.round(14 / row));
+    const flicker = row === 2 && Math.sin(t * 23) > 0.92 ? 0.35 : 0.85;
+    g.fillStyle = `rgba(255, 250, 205, ${flicker})`;
+    g.fillRect(Math.round(w / 2 - lw / 2), ly, lw, lh);
+  }
+
+  // Musty damp yellow-brown Backrooms carpet floor gradient
+  const floorGrd = g.createLinearGradient(0, horizon, 0, h);
+  floorGrd.addColorStop(0, "#121007");
+  floorGrd.addColorStop(0.35, "#4a411e");
+  floorGrd.addColorStop(1, "#7c6d34");
+  g.fillStyle = floorGrd;
+  g.fillRect(0, horizon, w, h - horizon);
+
+  // ------------------------------------------------------------------
+  // 3. 3D RAYCASTER WALLS (YELLOW BACKROOMS WALLPAPER + BASEBOARD)
+  // ------------------------------------------------------------------
+  const numRays = 160;
+  const stripW = Math.ceil(w / numRays);
+  const fov = Math.PI / 3; // 60 deg FOV
+  if (backroomsGame.zBuffer.length !== numRays) {
+    backroomsGame.zBuffer = new Float32Array(numRays);
+  }
+
+  for (let i = 0; i < numRays; i++) {
+    const camX = (2 * i) / numRays - 1;
+    const rayAngle = backroomsGame.pa + Math.atan(camX * Math.tan(fov / 2));
+    const rayDirX = Math.cos(rayAngle);
+    const rayDirY = Math.sin(rayAngle);
+
+    let mapX = Math.floor(backroomsGame.px);
+    let mapY = Math.floor(backroomsGame.py);
+
+    const deltaDistX = Math.abs(rayDirX) < 1e-6 ? 1e6 : Math.abs(1 / rayDirX);
+    const deltaDistY = Math.abs(rayDirY) < 1e-6 ? 1e6 : Math.abs(1 / rayDirY);
+
+    let stepX, sideDistX;
+    let stepY, sideDistY;
+
+    if (rayDirX < 0) {
+      stepX = -1;
+      sideDistX = (backroomsGame.px - mapX) * deltaDistX;
+    } else {
+      stepX = 1;
+      sideDistX = (mapX + 1.0 - backroomsGame.px) * deltaDistX;
+    }
+    if (rayDirY < 0) {
+      stepY = -1;
+      sideDistY = (backroomsGame.py - mapY) * deltaDistY;
+    } else {
+      stepY = 1;
+      sideDistY = (mapY + 1.0 - backroomsGame.py) * deltaDistY;
+    }
+
+    let hit = 0;
+    let side = 0;
+    let guard = 0;
+    while (hit === 0 && guard < 32) {
+      guard++;
+      if (sideDistX < sideDistY) {
+        sideDistX += deltaDistX;
+        mapX += stepX;
+        side = 0;
+      } else {
+        sideDistY += deltaDistY;
+        mapY += stepY;
+        side = 1;
+      }
+      if (mapX < 0 || mapX >= BR_MAP_SIZE || mapY < 0 || mapY >= BR_MAP_SIZE || BACKROOMS_MAP[mapY][mapX] > 0) {
+        hit = 1;
+      }
+    }
+
+    const rawDist = side === 0
+      ? (mapX - backroomsGame.px + (1 - stepX) / 2) / (rayDirX || 1e-6)
+      : (mapY - backroomsGame.py + (1 - stepY) / 2) / (rayDirY || 1e-6);
+    const perpDist = Math.max(0.15, rawDist * Math.cos(rayAngle - backroomsGame.pa));
+    backroomsGame.zBuffer[i] = perpDist;
+
+    const lineH = Math.round((h * 0.92) / perpDist);
+    const drawStart = Math.round(horizon - lineH / 2);
+
+    // Wall texture coordinate for vertical Backrooms wallpaper stripes
+    let wallX = side === 0
+      ? backroomsGame.py + rawDist * rayDirY
+      : backroomsGame.px + rawDist * rayDirX;
+    wallX -= Math.floor(wallX);
+    const stripe = Math.floor(wallX * 8) % 2 === 0 ? 1.0 : 0.91;
+
+    // Distance fog & side shading
+    const shade = Math.min(1, 1.35 / (1 + perpDist * 0.28)) * (side === 1 ? 0.82 : 1.0) * stripe;
+    const r = Math.round(212 * shade);
+    const gr = Math.round(190 * shade);
+    const b = Math.round(88 * shade);
+
+    const sx = i * stripW;
+    g.fillStyle = `rgb(${r}, ${gr}, ${b})`;
+    g.fillRect(sx, drawStart, stripW + 1, lineH);
+
+    // Dark brown damp baseboard molding along the bottom of the Backrooms wall
+    const baseH = Math.max(2, Math.round(lineH * 0.08));
+    g.fillStyle = `rgb(${Math.round(78 * shade)}, ${Math.round(62 * shade)}, ${Math.round(28 * shade)})`;
+    g.fillRect(sx, drawStart + lineH - baseH, stripW + 1, baseH);
+  }
+
+  // ------------------------------------------------------------------
+  // 4. 3D SPRITE PROJECTION: GIANT FLOATING RAMY FACE NEXTBOTS
+  // ------------------------------------------------------------------
+  const sortedEntities = backroomsGame.entities
+    .map((ent) => ({
+      ent,
+      dist: Math.hypot(ent.x - backroomsGame.px, ent.y - backroomsGame.py),
+    }))
+    .sort((a, b) => b.dist - a.dist); // Painter's algorithm: far to near
+
+  const cosFov = Math.tan(fov / 2);
+
+  for (const { ent, dist } of sortedEntities) {
+    if (dist < 0.2) continue;
+    const dx = ent.x - backroomsGame.px;
+    const dy = ent.y - backroomsGame.py;
+    let relAngle = Math.atan2(dy, dx) - backroomsGame.pa;
+    while (relAngle < -Math.PI) relAngle += Math.PI * 2;
+    while (relAngle > Math.PI) relAngle -= Math.PI * 2;
+
+    if (Math.abs(relAngle) > fov * 0.85) continue;
+
+    const perpDist = Math.max(0.22, dist * Math.cos(relAngle));
+    const screenX = Math.round(w * 0.5 * (1 + Math.tan(relAngle) / cosFov));
+    const spriteSize = Math.round(((h * 0.86) / perpDist) * ent.scale);
+    const floatBob = Math.sin(t * 5.5 + ent.bobOffset) * Math.min(20, 14 / perpDist);
+    const screenY = Math.round(horizon - spriteSize * 0.48 + floatBob);
+    const leftX = Math.round(screenX - spriteSize / 2);
+
+    // Check if the center or slices of the entity are visible in front of walls
+    const startRay = Math.max(0, Math.floor(leftX / stripW));
+    const endRay = Math.min(numRays - 1, Math.floor((leftX + spriteSize) / stripW));
+    let visibleCols = 0;
+    for (let r = startRay; r <= endRay; r++) {
+      if (perpDist < backroomsGame.zBuffer[r]) visibleCols++;
+    }
+    if (visibleCols === 0) continue;
+
+    // Pick which Ramy face photo to use for this entity
+    const faceImg =
+      ent.variant === 1 && ramy02Img && ramy02Img.complete && ramy02Img.naturalWidth > 0
+        ? ramy02Img
+        : ent.variant === 2 && ramy03Img && ramy03Img.complete && ramy03Img.naturalWidth > 0
+        ? ramy03Img
+        : ramyHeroImg;
+
+    // Clip to visible horizontal ray columns so walls cleanly occlude the Ramy Nextbot around corners!
+    g.save();
+    g.beginPath();
+    for (let r = startRay; r <= endRay; r++) {
+      if (perpDist < backroomsGame.zBuffer[r]) {
+        g.rect(r * stripW, 0, stripW + 1, h);
+      }
+    }
+    g.clip();
+
+    // Eerie crimson/amber Backrooms entity aura behind the floating Ramy head
+    const auraR = spriteSize * 0.58;
+    const auraGrd = g.createRadialGradient(
+      screenX,
+      screenY + spriteSize * 0.5,
+      auraR * 0.2,
+      screenX,
+      screenY + spriteSize * 0.5,
+      auraR
+    );
+    auraGrd.addColorStop(0, ent.hitFlash > 0 ? "rgba(255, 255, 255, 0.9)" : "rgba(255, 40, 40, 0.72)");
+    auraGrd.addColorStop(0.7, "rgba(220, 140, 20, 0.35)");
+    auraGrd.addColorStop(1, "rgba(0, 0, 0, 0)");
+    g.fillStyle = auraGrd;
+    g.beginPath();
+    g.arc(screenX, screenY + spriteSize * 0.5, auraR, 0, Math.PI * 2);
+    g.fill();
+
+    // Draw the Giant Floating Ramy Head circular/oval cutout
+    g.save();
+    g.beginPath();
+    g.ellipse(
+      screenX,
+      screenY + spriteSize * 0.5,
+      spriteSize * 0.42,
+      spriteSize * 0.5,
+      Math.sin(t * 4 + ent.bobOffset) * 0.06,
+      0,
+      Math.PI * 2
+    );
+    g.closePath();
+    g.clip();
+
+    if (faceImg && faceImg.complete && faceImg.naturalWidth > 0) {
+      // Crop tightly around the face area
+      const iw = faceImg.naturalWidth;
+      const ih = faceImg.naturalHeight;
+      const cropS = Math.min(iw, ih) * 0.78;
+      const sx = (iw - cropS) * 0.5;
+      const sy = (ih - cropS) * 0.22;
+      g.drawImage(faceImg, sx, sy, cropS, cropS, leftX, screenY, spriteSize, spriteSize);
+    } else {
+      g.fillStyle = "#eab308";
+      g.fillRect(leftX, screenY, spriteSize, spriteSize);
+    }
+
+    if (ent.hitFlash > 0) {
+      g.fillStyle = "rgba(255, 60, 60, 0.55)";
+      g.fillRect(leftX, screenY, spriteSize, spriteSize);
+    }
+    g.restore();
+
+    // Glowing entity rim & name tag above the giant Ramy head
+    g.strokeStyle = ent.hitFlash > 0 ? "#ffffff" : ent.variant === 2 ? "#f43f5e" : "#facc15";
+    g.lineWidth = Math.max(1.5, Math.min(4, 5 / perpDist));
+    g.beginPath();
+    g.ellipse(
+      screenX,
+      screenY + spriteSize * 0.5,
+      spriteSize * 0.42,
+      spriteSize * 0.5,
+      Math.sin(t * 4 + ent.bobOffset) * 0.06,
+      0,
+      Math.PI * 2
+    );
+    g.stroke();
+
+    // Health bar above the Ramy Entity
+    const barW = Math.max(32, Math.min(110, spriteSize * 0.7));
+    const barH = 6;
+    const barX = screenX - barW / 2;
+    const barY = screenY - 12;
+    g.fillStyle = "rgba(0, 0, 0, 0.75)";
+    g.fillRect(barX, barY, barW, barH);
+    g.fillStyle = "#ef4444";
+    g.fillRect(barX + 1, barY + 1, ((barW - 2) * Math.max(0, ent.hp)) / ent.maxHp, barH - 2);
+
+    g.restore();
+  }
+
+  // ------------------------------------------------------------------
+  // 5. FIRST-PERSON WEAPON, CROSSHAIR & MUZZLE FLASH
+  // ------------------------------------------------------------------
+  const cx = w / 2;
+  const cy = Math.round(h * 0.5);
+
+  // Target Reticle Crosshair
+  g.strokeStyle = backroomsGame.muzzleTimer > 0 ? "#facc15" : "rgba(255, 255, 255, 0.85)";
+  g.lineWidth = 2;
+  g.beginPath();
+  g.moveTo(cx - 12, cy); g.lineTo(cx - 4, cy);
+  g.moveTo(cx + 4, cy); g.lineTo(cx + 12, cy);
+  g.moveTo(cx, cy - 12); g.lineTo(cx, cy - 4);
+  g.moveTo(cx, cy + 4); g.lineTo(cx, cy + 12);
+  g.stroke();
+
+  // First-Person Plasma Blaster at bottom center
+  const gunSwayX = backroomsGame.state === "playing" ? Math.cos(backroomsGame.walkPhase * 0.5) * 10 : 0;
+  const gunSwayY = backroomsGame.state === "playing" ? Math.abs(Math.sin(backroomsGame.walkPhase)) * 8 : 0;
+  const kickY = backroomsGame.gunKick * 28;
+  const gx = Math.round(w * 0.56 + gunSwayX);
+  const gy = Math.round(h - 115 + gunSwayY + kickY);
+
+  // Muzzle flash burst
+  if (backroomsGame.muzzleTimer > 0) {
+    const flashGrd = g.createRadialGradient(gx - 18, gy - 16, 4, gx - 18, gy - 16, 68);
+    flashGrd.addColorStop(0, "rgba(255, 255, 220, 0.98)");
+    flashGrd.addColorStop(0.4, "rgba(250, 204, 21, 0.85)");
+    flashGrd.addColorStop(1, "rgba(255, 80, 0, 0)");
+    g.fillStyle = flashGrd;
+    g.beginPath();
+    g.arc(gx - 18, gy - 16, 68, 0, Math.PI * 2);
+    g.fill();
+  }
+
+  // Gun barrel & sci-fi chassis in perspective
+  g.save();
+  g.translate(gx, gy);
+  // Barrel
+  g.fillStyle = "#1e293b";
+  g.strokeStyle = "#475569";
+  g.lineWidth = 2;
+  g.beginPath();
+  g.moveTo(-26, -24);
+  g.lineTo(14, -24);
+  g.lineTo(44, 120);
+  g.lineTo(-42, 120);
+  g.closePath();
+  g.fill();
+  g.stroke();
+
+  // Glowing plasma coils on the gun barrel
+  g.fillStyle = backroomsGame.muzzleTimer > 0 ? "#fde047" : "#38bdf8";
+  g.fillRect(-16, -6, 20, 6);
+  g.fillRect(-19, 12, 26, 6);
+  g.fillRect(-22, 30, 32, 6);
+
+  // Receiver grip shroud
+  g.fillStyle = "#0f172a";
+  g.fillRect(-30, 48, 64, 72);
+  g.strokeStyle = "#facc15";
+  g.lineWidth = 1.5;
+  g.strokeRect(-30, 48, 64, 72);
+  g.restore();
+
+  // Red vignette flash when damaged by a Ramy entity
+  if (backroomsGame.hurtTimer > 0) {
+    g.fillStyle = `rgba(220, 38, 38, ${Math.min(0.45, backroomsGame.hurtTimer * 1.6)})`;
+    g.fillRect(0, 0, w, h);
+  }
+
+  // ------------------------------------------------------------------
+  // 6. MINI-MAP RADAR & VHS BACKROOMS HUD OVERLAY
+  // ------------------------------------------------------------------
+  // Top HUD strip
+  g.fillStyle = "rgba(12, 10, 4, 0.85)";
+  g.fillRect(0, 0, w, 38);
+  g.strokeStyle = "rgba(250, 204, 21, 0.45)";
+  g.lineWidth = 1.5;
+  g.beginPath();
+  g.moveTo(0, 38);
+  g.lineTo(w, 38);
+  g.stroke();
+
+  // VHS REC ● Indicator
+  g.fillStyle = Math.floor(t * 2) % 2 === 0 ? "#ef4444" : "rgba(239, 68, 68, 0.35)";
+  g.beginPath();
+  g.arc(18, 19, 5, 0, Math.PI * 2);
+  g.fill();
+  g.fillStyle = "#fef08a";
+  g.font = "bold 12.5px monospace";
+  g.fillText(`REC // LEVEL 0   SCORE:${String(backroomsGame.score).padStart(5, "0")}   KILLS:${backroomsGame.kills}`, 30, 24);
+
+  // Player Health Bar on top right
+  g.fillStyle = backroomsGame.hp > 35 ? "#4ade80" : "#ef4444";
+  g.textAlign = "right";
+  g.fillText(`HP: ${Math.ceil(backroomsGame.hp)}%`, w - 14, 24);
+  g.textAlign = "left";
+
+  // Mini-map in bottom-left corner during gameplay
+  if (backroomsGame.state === "playing") {
+    const cellS = 7;
+    const mapW = BR_MAP_SIZE * cellS;
+    const mapX = 12;
+    const mapY = h - mapW - 12;
+    g.fillStyle = "rgba(10, 9, 4, 0.82)";
+    g.fillRect(mapX - 2, mapY - 2, mapW + 4, mapW + 4);
+    g.strokeStyle = "rgba(250, 204, 21, 0.5)";
+    g.strokeRect(mapX - 2, mapY - 2, mapW + 4, mapW + 4);
+
+    for (let my = 0; my < BR_MAP_SIZE; my++) {
+      for (let mx = 0; mx < BR_MAP_SIZE; mx++) {
+        if (BACKROOMS_MAP[my][mx] > 0) {
+          g.fillStyle = "rgba(212, 190, 88, 0.65)";
+          g.fillRect(mapX + mx * cellS, mapY + my * cellS, cellS - 0.5, cellS - 0.5);
+        }
+      }
+    }
+    // Draw Ramy entities on radar
+    g.fillStyle = "#ef4444";
+    for (const ent of backroomsGame.entities) {
+      g.beginPath();
+      g.arc(mapX + ent.x * cellS, mapY + ent.y * cellS, 2.5, 0, Math.PI * 2);
+      g.fill();
+    }
+    // Draw player & view direction on radar
+    const pxMap = mapX + backroomsGame.px * cellS;
+    const pyMap = mapY + backroomsGame.py * cellS;
+    g.fillStyle = "#38bdf8";
+    g.beginPath();
+    g.arc(pxMap, pyMap, 2.8, 0, Math.PI * 2);
+    g.fill();
+    g.strokeStyle = "#38bdf8";
+    g.lineWidth = 1.5;
+    g.beginPath();
+    g.moveTo(pxMap, pyMap);
+    g.lineTo(pxMap + Math.cos(backroomsGame.pa) * 9, pyMap + Math.sin(backroomsGame.pa) * 9);
+    g.stroke();
+  }
+
+  // Title / Game Over Overlay
+  if (backroomsGame.state === "title" || backroomsGame.state === "gameover") {
+    g.fillStyle = "rgba(12, 10, 3, 0.78)";
+    g.fillRect(w * 0.08, h * 0.17, w * 0.84, h * 0.66);
+    g.strokeStyle = backroomsGame.state === "gameover" ? "#ef4444" : "#facc15";
+    g.lineWidth = 2;
+    g.strokeRect(w * 0.08, h * 0.17, w * 0.84, h * 0.66);
+
+    g.textAlign = "center";
+    if (backroomsGame.state === "title") {
+      g.fillStyle = "#facc15";
+      g.font = "bold 12px monospace";
+      g.fillText("⚠ FOUND FOOTAGE // 3D RAYCAST FPS", w / 2, h * 0.27);
+
+      g.fillStyle = "#fef08a";
+      g.font = "bold 30px 'SF Pro Display', -apple-system, monospace";
+      g.fillText("THE BACKROOMS", w / 2, h * 0.39);
+
+      g.fillStyle = "#ef4444";
+      g.font = "bold 14px monospace";
+      g.fillText("ENTITY ALERT: GIANT RAMY NEXTBOTS", w / 2, h * 0.47);
+
+      g.fillStyle = "#e2e8f0";
+      g.font = "12px monospace";
+      g.fillText("MOVE: W A S D / ARROWS  •  AIM & SHOOT: MOUSE / CLICK / SPACE", w / 2, h * 0.56);
+
+      const btnW = 290;
+      const btnH = 42;
+      const btnX = w / 2 - btnW / 2;
+      const btnY = h * 0.64;
+      g.fillStyle = "rgba(250, 204, 21, 0.22)";
+      g.fillRect(btnX, btnY, btnW, btnH);
+      g.strokeStyle = "#facc15";
+      g.lineWidth = 1.8;
+      g.strokeRect(btnX, btnY, btnW, btnH);
+      g.fillStyle = "#ffffff";
+      g.font = "bold 14px monospace";
+      g.fillText("▶ CLICK OR SPACE TO ENTER", w / 2, btnY + 26);
+    } else {
+      g.fillStyle = "#ef4444";
+      g.font = "bold 32px 'SF Pro Display', -apple-system, monospace";
+      g.fillText("CAUGHT BY RAMY!", w / 2, h * 0.35);
+
+      g.fillStyle = "#fef08a";
+      g.font = "bold 15px monospace";
+      g.fillText(
+        `SCORE: ${backroomsGame.score}   •   RAMYS DEFEATED: ${backroomsGame.kills}`,
+        w / 2,
+        h * 0.48
+      );
+
+      const btnW = 290;
+      const btnH = 42;
+      const btnX = w / 2 - btnW / 2;
+      const btnY = h * 0.60;
+      g.fillStyle = "rgba(239, 68, 68, 0.24)";
+      g.fillRect(btnX, btnY, btnW, btnH);
+      g.strokeStyle = "#ef4444";
+      g.lineWidth = 1.8;
+      g.strokeRect(btnX, btnY, btnW, btnH);
+      g.fillStyle = "#ffffff";
+      g.font = "bold 14px monospace";
+      g.fillText("↻ CLICK OR SPACE TO RETRY", w / 2, btnY + 26);
+    }
+    g.textAlign = "left";
+  }
+
+  g.strokeStyle = "rgba(250, 204, 21, 0.45)";
+  g.lineWidth = 2;
+  g.strokeRect(3, 3, w - 6, h - 6);
+  g.restore();
+}
+
+/* ------------------------------------------------------------------ */
 /*  Geometry helpers                                                   */
 /* ------------------------------------------------------------------ */
 function roundedBoxGeo(w, h, d, r) {
@@ -2884,6 +3645,8 @@ export default function SciFiCockpit({ onExitToTerminal }) {
   const [hoveredGallery, setHoveredGallery] = useState(false);
   const hoveredGameRef = useRef(false);
   const [hoveredGame, setHoveredGame] = useState(false);
+  const hoveredBackroomsRef = useRef(false);
+  const [hoveredBackrooms, setHoveredBackrooms] = useState(false);
   const currentGalleryIdxRef = useRef(0);
   const updateScreenTextureRef = useRef(null);
   const cycleCameraViewRef = useRef(null);
@@ -2900,7 +3663,8 @@ export default function SciFiCockpit({ onExitToTerminal }) {
     });
   };
   const [currentTime, setCurrentTime] = useState(getFormattedTime);
-  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [isPlayingAudio, setIsPlayingAudio] = useState(() => zenAudio.isPlaying || true);
+  const [currentTrack, setCurrentTrack] = useState(() => zenAudio.getCurrentTrack());
 
   // Typewriter intro animation for "Ramy Kassam" and "Software Engineer" upon entering
   const [typedName, setTypedName] = useState("");
@@ -2942,19 +3706,39 @@ export default function SciFiCockpit({ onExitToTerminal }) {
   }, []);
 
   useEffect(() => {
+    const unsub = zenAudio.subscribe((state) => {
+      setIsPlayingAudio(state.isPlaying);
+      if (state.currentTrack) {
+        setCurrentTrack(state.currentTrack);
+      }
+    });
+    zenAudio.start();
     return () => {
-      zenAudio.stop();
+      unsub();
     };
   }, []);
 
   const toggleAudio = () => {
     const playing = zenAudio.toggle();
     setIsPlayingAudio(playing);
+    setCurrentTrack(zenAudio.getCurrentTrack());
     if (playing) {
       playClickSound(620, 0.08);
     } else {
       playClickSound(360, 0.08);
     }
+  };
+
+  const handleNextTrack = () => {
+    zenAudio.nextTrack();
+    setCurrentTrack(zenAudio.getCurrentTrack());
+    playClickSound(540, 0.05);
+  };
+
+  const handlePrevTrack = () => {
+    zenAudio.prevTrack();
+    setCurrentTrack(zenAudio.getCurrentTrack());
+    playClickSound(480, 0.05);
   };
 
   const navigateToTab = (tabId) => {
@@ -3138,6 +3922,13 @@ export default function SciFiCockpit({ onExitToTerminal }) {
     let gameCtx = null;
     let gameTex = null;
 
+    let backroomsScreenMesh = null;
+    let backroomsScreenGroup = null;
+    let backroomsCanvas = null;
+    let backroomsCtx = null;
+    let backroomsTex = null;
+    let lastBackroomsMouseX = null;
+
     const redrawGallery = () => {
       if (!galleryCtx || !galleryCanvas || !galleryTex) return;
       drawGalleryHUD(
@@ -3161,7 +3952,7 @@ export default function SciFiCockpit({ onExitToTerminal }) {
     const screenUnit = (w, h, variant, animated, parent, x, y, z, rx = 0, ry = 0, rz = 0) => {
       const g0 = grp(x, y, z, rx, ry, rz, parent);
       box(w + 0.06, h + 0.06, 0.04, M.black, 0, 0, -0.01, 0, 0, 0, g0);
-      const pw = variant === 5 ? 1024 : variant === 6 ? 1200 : variant === 7 ? 800 : 512;
+      const pw = variant === 5 ? 1024 : variant === 6 ? 1200 : variant === 7 || variant === 8 ? 640 : 512;
       const ph = Math.max(128, Math.round((pw * h) / w));
       const c = document.createElement("canvas");
       c.width = pw;
@@ -3171,6 +3962,8 @@ export default function SciFiCockpit({ onExitToTerminal }) {
         drawGalleryHUD(g, pw, ph, galleryPhotoIdx, 0, galleryAlbum, galleryViewMode);
       } else if (variant === 7) {
         updateAndDrawGameHUD(g, pw, ph, 0.016, 0);
+      } else if (variant === 8) {
+        updateAndDrawBackroomsHUD(g, pw, ph, 0.016, 0);
       } else {
         drawHUD(g, pw, ph, variant, 0);
       }
@@ -3200,6 +3993,14 @@ export default function SciFiCockpit({ onExitToTerminal }) {
         gameCtx = g;
         gameTex = tex;
         scr.userData.isGameScreen = true;
+      }
+      if (variant === 8) {
+        backroomsScreenMesh = scr;
+        backroomsScreenGroup = g0;
+        backroomsCanvas = c;
+        backroomsCtx = g;
+        backroomsTex = tex;
+        scr.userData.isBackroomsScreen = true;
       }
       if (animated) animScreens.push({ g, w: pw, h: ph, v: variant, tex });
       return g0;
@@ -3493,6 +4294,7 @@ export default function SciFiCockpit({ onExitToTerminal }) {
     // Digital Photo Gallery on the lower center monitor: Loveland Ski Trip (variant 6)
     screenUnit(0.58, 0.30, 6, false, scene, 0, 0.87, -0.37, -0.75, 0, 0);
     screenUnit(0.28, 0.4, 2, false, scene, -0.42, 1.1, -0.48, -0.2214, 0.4404, 0.0957);
+    // Keep right auxiliary monitor on telemetry HUD (variant 3) until Backrooms game is ready to publish
     screenUnit(0.28, 0.4, 3, false, scene, 0.42, 1.1, -0.48, -0.2214, -0.4404, -0.0957);
     screenUnit(0.2, 0.32, 4, true, scene, -0.74, 1.14, -0.4, -0.3, 0.7, 0);
     screenUnit(0.2, 0.32, 4, false, scene, 0.74, 1.14, -0.4, -0.3, -0.7, 0);
@@ -3742,6 +4544,11 @@ export default function SciFiCockpit({ onExitToTerminal }) {
     // Game focus: directly perpendicular close-up on the upper-center Arcade Space Game monitor
     const gameCamPos = new THREE.Vector3(0, 1.323, -0.182);
     const gameLookTarget = new THREE.Vector3(0, 1.2, -0.52);
+    // Backrooms focus: directly perpendicular close-up on the right auxiliary Backrooms 3D FPS monitor
+    const backroomsLookTarget = new THREE.Vector3(0.44, 1.12, -0.48);
+    const backroomsCamPos = new THREE.Vector3(0, 0, 0.36)
+      .applyEuler(new THREE.Euler(-0.2214, -0.4404, -0.0957, "XYZ"))
+      .add(backroomsLookTarget);
     const currentLookAt = new THREE.Vector3().copy(target);
 
     const pointers = new Map();
@@ -3761,6 +4568,7 @@ export default function SciFiCockpit({ onExitToTerminal }) {
       if (mainScreenMesh && raycaster.intersectObject(mainScreenMesh).length > 0) return true;
       if (galleryScreenMesh && raycaster.intersectObject(galleryScreenMesh).length > 0) return true;
       if (gameScreenMesh && raycaster.intersectObject(gameScreenMesh).length > 0) return true;
+      if (backroomsScreenMesh && raycaster.intersectObject(backroomsScreenMesh).length > 0) return true;
       if (
         focusModeRef.current === 'none' &&
         consoleAreaHitMesh &&
@@ -3790,6 +4598,14 @@ export default function SciFiCockpit({ onExitToTerminal }) {
         focusModeRef.current = 'game';
         setFocusMode('game');
       } else if (focusModeRef.current === 'game') {
+        if (backroomsScreenMesh) {
+          focusModeRef.current = 'backrooms';
+          setFocusMode('backrooms');
+        } else {
+          focusModeRef.current = 'gallery';
+          setFocusMode('gallery');
+        }
+      } else if (focusModeRef.current === 'backrooms') {
         focusModeRef.current = 'gallery';
         setFocusMode('gallery');
       } else {
@@ -3806,7 +4622,8 @@ export default function SciFiCockpit({ onExitToTerminal }) {
       if (
         focusModeRef.current === 'close' ||
         focusModeRef.current === 'gallery' ||
-        focusModeRef.current === 'game'
+        focusModeRef.current === 'game' ||
+        focusModeRef.current === 'backrooms'
       ) {
         focusModeRef.current = 'medium';
         setFocusMode('medium');
@@ -3831,7 +4648,8 @@ export default function SciFiCockpit({ onExitToTerminal }) {
       el.style.cursor =
         focusModeRef.current === 'close' ||
         focusModeRef.current === 'gallery' ||
-        focusModeRef.current === 'game'
+        focusModeRef.current === 'game' ||
+        focusModeRef.current === 'backrooms'
           ? "default"
           : "grabbing";
       if (focusModeRef.current === 'game' && spaceGame.state === 'playing') {
@@ -3852,10 +4670,35 @@ export default function SciFiCockpit({ onExitToTerminal }) {
         raycaster.setFromCamera(mouse, camera);
         const gameHits = raycaster.intersectObject(gameScreenMesh);
         if (gameHits.length > 0 && gameHits[0].uv) {
-          const gw = gameCanvas ? gameCanvas.width : 800;
+          const gw = gameCanvas ? gameCanvas.width : 640;
           spaceGame.targetShipX = gameHits[0].uv.x * gw;
           spaceGame.usingMouse = true;
         }
+      }
+
+      // Allow mouse turning inside the Backrooms FPS monitor
+      if (backroomsScreenMesh && focusModeRef.current === 'backrooms' && backroomsGame.state === 'playing') {
+        const rect = el.getBoundingClientRect();
+        mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+        raycaster.setFromCamera(mouse, camera);
+        const brHits = raycaster.intersectObject(backroomsScreenMesh);
+        if (brHits.length > 0 && brHits[0].uv) {
+          const u = brHits[0].uv.x;
+          if (lastBackroomsMouseX !== null) {
+            const du = u - lastBackroomsMouseX;
+            backroomsGame.pa += du * 3.2;
+          }
+          lastBackroomsMouseX = u;
+          // Gentle edge-turning when aiming near the left/right edges of the monitor
+          if (u < 0.22) backroomsGame.mouseTurnVel = -1.6 * ((0.22 - u) / 0.22);
+          else if (u > 0.78) backroomsGame.mouseTurnVel = 1.6 * ((u - 0.78) / 0.22);
+          else backroomsGame.mouseTurnVel = 0;
+        } else {
+          lastBackroomsMouseX = null;
+        }
+      } else {
+        lastBackroomsMouseX = null;
       }
 
       if (pointers.size === 0) {
@@ -3864,6 +4707,10 @@ export default function SciFiCockpit({ onExitToTerminal }) {
           if (hoveredGameRef.current) {
             hoveredGameRef.current = false;
             setHoveredGame(false);
+          }
+          if (hoveredBackroomsRef.current) {
+            hoveredBackroomsRef.current = false;
+            setHoveredBackrooms(false);
           }
           if (hoveredGalleryRef.current) {
             hoveredGalleryRef.current = false;
@@ -3948,6 +4795,39 @@ export default function SciFiCockpit({ onExitToTerminal }) {
           }
         }
 
+        // Check if hovering over the 3D Backrooms FPS monitor
+        if (backroomsScreenMesh) {
+          const rect = el.getBoundingClientRect();
+          mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+          mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+          raycaster.setFromCamera(mouse, camera);
+          const brHits = raycaster.intersectObject(backroomsScreenMesh);
+          if (brHits.length > 0) {
+            el.style.cursor = focusModeRef.current === 'backrooms' ? "crosshair" : "pointer";
+            if (!hoveredBackroomsRef.current) {
+              hoveredBackroomsRef.current = true;
+              setHoveredBackrooms(true);
+            }
+            if (hoveredGameRef.current) {
+              hoveredGameRef.current = false;
+              setHoveredGame(false);
+            }
+            if (hoveredGalleryRef.current) {
+              hoveredGalleryRef.current = false;
+              setHoveredGallery(false);
+            }
+            if (hoveredRef.current) {
+              hoveredRef.current = false;
+              setHovered(false);
+            }
+            return;
+          }
+        }
+        if (hoveredBackroomsRef.current) {
+          hoveredBackroomsRef.current = false;
+          setHoveredBackrooms(false);
+        }
+
         // Check if hovering over the Arcade Space Game monitor
         if (gameScreenMesh) {
           const rect = el.getBoundingClientRect();
@@ -4005,7 +4885,8 @@ export default function SciFiCockpit({ onExitToTerminal }) {
         const isFocused =
           focusModeRef.current === 'close' ||
           focusModeRef.current === 'gallery' ||
-          focusModeRef.current === 'game';
+          focusModeRef.current === 'game' ||
+          focusModeRef.current === 'backrooms';
         const isHit = !isFocused && checkScreenHit(e.clientX, e.clientY);
         el.style.cursor = isHit ? "pointer" : (isFocused ? "default" : "grab");
         if (isHit !== hoveredRef.current) {
@@ -4028,7 +4909,11 @@ export default function SciFiCockpit({ onExitToTerminal }) {
         }
         return;
       }
-      if (focusModeRef.current === 'gallery' || focusModeRef.current === 'game') {
+      if (
+        focusModeRef.current === 'gallery' ||
+        focusModeRef.current === 'game' ||
+        focusModeRef.current === 'backrooms'
+      ) {
         return;
       }
 
@@ -4082,6 +4967,36 @@ export default function SciFiCockpit({ onExitToTerminal }) {
               takeControl();
               pointers.delete(e.pointerId);
               return;
+            }
+
+            // Check if clicked on the 3D Backrooms FPS monitor
+            if (backroomsScreenMesh) {
+              const rect = el.getBoundingClientRect();
+              const checkPosBr = (px, py) => {
+                mouse.x = ((px - rect.left) / rect.width) * 2 - 1;
+                mouse.y = -((py - rect.top) / rect.height) * 2 + 1;
+                raycaster.setFromCamera(mouse, camera);
+                const bHits = raycaster.intersectObject(backroomsScreenMesh);
+                if (bHits.length > 0 && bHits[0].uv) {
+                  return bHits[0].uv;
+                }
+                return null;
+              };
+              const brUv = checkPosBr(e.clientX, e.clientY) || (downPos && checkPosBr(downPos.x, downPos.y));
+              if (brUv) {
+                if (focusModeRef.current !== 'backrooms') {
+                  focusModeRef.current = 'backrooms';
+                  setFocusMode('backrooms');
+                  playClickSound(540, 0.05);
+                  takeControl();
+                  pointers.delete(e.pointerId);
+                  return;
+                }
+                fireBackroomsWeapon(playClickSound);
+                takeControl();
+                pointers.delete(e.pointerId);
+                return;
+              }
             }
 
             // Check if clicked on the Arcade Space Game monitor
@@ -4415,7 +5330,8 @@ export default function SciFiCockpit({ onExitToTerminal }) {
             if (
               focusModeRef.current === 'close' ||
               focusModeRef.current === 'gallery' ||
-              focusModeRef.current === 'game'
+              focusModeRef.current === 'game' ||
+              focusModeRef.current === 'backrooms'
             ) {
               // From monitor, gallery, or game close-up, exit back to pilot cockpit view
               focusModeRef.current = 'medium';
@@ -4441,7 +5357,8 @@ export default function SciFiCockpit({ onExitToTerminal }) {
         const isFocused =
           focusModeRef.current === 'close' ||
           focusModeRef.current === 'gallery' ||
-          focusModeRef.current === 'game';
+          focusModeRef.current === 'game' ||
+          focusModeRef.current === 'backrooms';
         const isHit = !isFocused && checkScreenHit(e.clientX, e.clientY);
         el.style.cursor = isHit ? "pointer" : (isFocused ? "default" : "grab");
       }
@@ -4463,7 +5380,11 @@ export default function SciFiCockpit({ onExitToTerminal }) {
           setFocusMode('medium');
         }
         return;
-      } else if (focusModeRef.current === 'gallery' || focusModeRef.current === 'game') {
+      } else if (
+        focusModeRef.current === 'gallery' ||
+        focusModeRef.current === 'game' ||
+        focusModeRef.current === 'backrooms'
+      ) {
         if (!hitScreen && e.deltaY > 0) {
           focusModeRef.current = 'medium';
           setFocusMode('medium');
@@ -4478,6 +5399,9 @@ export default function SciFiCockpit({ onExitToTerminal }) {
           } else if (gameScreenMesh && raycaster.intersectObject(gameScreenMesh).length > 0) {
             focusModeRef.current = 'game';
             setFocusMode('game');
+          } else if (backroomsScreenMesh && raycaster.intersectObject(backroomsScreenMesh).length > 0) {
+            focusModeRef.current = 'backrooms';
+            setFocusMode('backrooms');
           } else {
             focusModeRef.current = 'close';
             setFocusMode('close');
@@ -4532,6 +5456,44 @@ export default function SciFiCockpit({ onExitToTerminal }) {
         if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
           contactForm[contactForm.activeField] += e.key;
           updateScreenTextureRef.current?.('contact');
+          e.preventDefault();
+          return;
+        }
+      }
+
+      if (focusModeRef.current === 'backrooms') {
+        if (e.key === "ArrowUp" || e.key === "w" || e.key === "W") {
+          backroomsGame.keys.up = true;
+          e.preventDefault();
+          return;
+        }
+        if (e.key === "ArrowDown" || e.key === "s" || e.key === "S") {
+          backroomsGame.keys.down = true;
+          e.preventDefault();
+          return;
+        }
+        if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") {
+          backroomsGame.keys.left = true;
+          e.preventDefault();
+          return;
+        }
+        if (e.key === "ArrowRight" || e.key === "d" || e.key === "D") {
+          backroomsGame.keys.right = true;
+          e.preventDefault();
+          return;
+        }
+        if (e.key === "q" || e.key === "Q") {
+          backroomsGame.keys.strafeL = true;
+          e.preventDefault();
+          return;
+        }
+        if (e.key === "e" || e.key === "E") {
+          backroomsGame.keys.strafeR = true;
+          e.preventDefault();
+          return;
+        }
+        if (e.key === " " || e.key === "Enter") {
+          fireBackroomsWeapon(playClickSound);
           e.preventDefault();
           return;
         }
@@ -4596,7 +5558,8 @@ export default function SciFiCockpit({ onExitToTerminal }) {
         if (
           focusModeRef.current === 'close' ||
           focusModeRef.current === 'gallery' ||
-          focusModeRef.current === 'game'
+          focusModeRef.current === 'game' ||
+          focusModeRef.current === 'backrooms'
         ) {
           focusModeRef.current = 'medium';
           setFocusMode('medium');
@@ -4612,8 +5575,26 @@ export default function SciFiCockpit({ onExitToTerminal }) {
     };
 
     const onKeyUp = (e) => {
-      if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") spaceGame.keys.left = false;
-      if (e.key === "ArrowRight" || e.key === "d" || e.key === "D") spaceGame.keys.right = false;
+      if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") {
+        spaceGame.keys.left = false;
+        backroomsGame.keys.left = false;
+      }
+      if (e.key === "ArrowRight" || e.key === "d" || e.key === "D") {
+        spaceGame.keys.right = false;
+        backroomsGame.keys.right = false;
+      }
+      if (e.key === "ArrowUp" || e.key === "w" || e.key === "W") {
+        backroomsGame.keys.up = false;
+      }
+      if (e.key === "ArrowDown" || e.key === "s" || e.key === "S") {
+        backroomsGame.keys.down = false;
+      }
+      if (e.key === "q" || e.key === "Q") {
+        backroomsGame.keys.strafeL = false;
+      }
+      if (e.key === "e" || e.key === "E") {
+        backroomsGame.keys.strafeR = false;
+      }
       if (e.key === " " || e.key === "Enter" || e.key === "ArrowUp" || e.key === "w" || e.key === "W") {
         spaceGame.keys.fire = false;
       }
@@ -4725,6 +5706,14 @@ export default function SciFiCockpit({ onExitToTerminal }) {
         currentLookAt.lerp(gameLookTarget, kFocus);
         camera.position.copy(camPos);
         camera.lookAt(currentLookAt);
+      } else if (focusModeRef.current === 'backrooms') {
+        idleTime = 0;
+        // Smoothly glide camera into close-up focus on the 3D Backrooms FPS monitor
+        const kFocus = 1 - Math.exp(-dt * 8.5);
+        camPos.lerp(backroomsCamPos, kFocus);
+        currentLookAt.lerp(backroomsLookTarget, kFocus);
+        camera.position.copy(camPos);
+        camera.lookAt(currentLookAt);
       } else if (focusModeRef.current === 'medium') {
         idleTime = 0;
         // General pilot console perspective showing main monitor AND lower auxiliary monitors
@@ -4763,16 +5752,26 @@ export default function SciFiCockpit({ onExitToTerminal }) {
           if (gameIdleTimer >= 0.05) {
             updateAndDrawGameHUD(gameCtx, gameCanvas.width, gameCanvas.height, gameIdleTimer, t, null);
             gameTex.needsUpdate = true;
+            if (backroomsCtx && backroomsCanvas && backroomsTex && focusModeRef.current !== 'backrooms' && backroomsGame.state !== 'playing') {
+              updateAndDrawBackroomsHUD(backroomsCtx, backroomsCanvas.width, backroomsCanvas.height, gameIdleTimer, t, null);
+              backroomsTex.needsUpdate = true;
+            }
             gameIdleTimer = 0;
           }
         }
+      }
+
+      // Update 3D Backrooms Raycaster FPS monitor at 60fps when focused or playing
+      if (backroomsCtx && backroomsCanvas && backroomsTex && (focusModeRef.current === 'backrooms' || backroomsGame.state === 'playing')) {
+        updateAndDrawBackroomsHUD(backroomsCtx, backroomsCanvas.width, backroomsCanvas.height, dt, t, playClickSound);
+        backroomsTex.needsUpdate = true;
       }
 
       hudTimer += dt;
       if (hudTimer > 0.8) {
         hudTimer = 0;
         // Staggered auxiliary screen redraws: update 1 screen per cycle to eliminate GPU stalls
-        const aux = animScreens.filter((sc) => sc.v !== 5 && sc.v !== 6 && sc.v !== 7);
+        const aux = animScreens.filter((sc) => sc.v !== 5 && sc.v !== 6 && sc.v !== 7 && sc.v !== 8);
         if (aux.length > 0) {
           const sc = aux[Math.floor(Math.random() * aux.length)];
           drawHUD(sc.g, sc.w, sc.h, sc.v, t, activeTabRef.current, curScrollY);
@@ -4906,32 +5905,81 @@ export default function SciFiCockpit({ onExitToTerminal }) {
         </div>
       </div>
 
-      {/* Terminal Intro Return Button */}
-      {onExitToTerminal && focusMode !== 'close' && focusMode !== 'gallery' && focusMode !== 'game' && (
-        <button
-          onClick={onExitToTerminal}
-          className="absolute top-4 right-4 rounded-full px-3.5 py-1.5 text-xs font-mono uppercase focus:outline-none focus:ring-2 z-10 cursor-pointer flex items-center gap-1.5 transition-all duration-150 hover:scale-105 active:scale-95"
-          style={{
-            background: "rgba(10, 10, 10, 0.85)",
-            color: "#ffffff",
-            border: "1px solid rgba(255, 255, 255, 0.4)",
-            backdropFilter: "blur(6px)",
-          }}
-          title="Return to Command Prompt"
-        >
-          <span className="text-emerald-400 font-bold">&gt;_</span>
-          <span>TERMINAL</span>
-        </button>
-      )}
+      {/* Upper Right Corner: Song Name Display & Action Button */}
+      <div className="absolute top-4 right-4 z-20 flex flex-col items-end gap-[4px] font-mono text-white select-none">
+        {/* Song Name Box */}
+        <div className="flex items-center gap-[4px]">
+          <div
+            onClick={toggleAudio}
+            className="bg-black px-3.5 py-1 text-xs sm:text-sm font-normal tracking-wide shadow-md min-h-[28px] flex items-center gap-2 cursor-pointer hover:bg-neutral-900 transition"
+            title={isPlayingAudio ? "Click to turn off music (or use speaker icon)" : "Click to listen to music (or use speaker icon)"}
+          >
+            <span className={isPlayingAudio ? "text-emerald-400 animate-pulse" : "text-neutral-400"}>
+              ♫
+            </span>
+            <span>{currentTrack?.display || "DUMBAI — CA7RIEL & Paco Amoroso"}</span>
+          </div>
 
+          <button
+            onClick={handlePrevTrack}
+            className="bg-black px-2 py-1 text-xs hover:bg-neutral-800 active:scale-95 transition cursor-pointer shadow-md text-white min-h-[28px] flex items-center justify-center"
+            title="Previous song"
+            aria-label="Previous song"
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5">
+              <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" />
+            </svg>
+          </button>
+          <button
+            onClick={toggleAudio}
+            className="bg-black px-2.5 py-1 text-xs hover:bg-neutral-800 active:scale-95 transition cursor-pointer shadow-md text-white min-h-[28px] flex items-center justify-center"
+            title={isPlayingAudio ? "Pause music" : "Play music"}
+            aria-label={isPlayingAudio ? "Pause music" : "Play music"}
+          >
+            {isPlayingAudio ? (
+              <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5 text-emerald-400">
+                <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5 text-white">
+                <path d="M8 5v14l11-7z" />
+              </svg>
+            )}
+          </button>
+          <button
+            onClick={handleNextTrack}
+            className="bg-black px-2 py-1 text-xs hover:bg-neutral-800 active:scale-95 transition cursor-pointer shadow-md text-white min-h-[28px] flex items-center justify-center"
+            title="Next song"
+            aria-label="Next song"
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5">
+              <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />
+            </svg>
+          </button>
+        </div>
 
+        {/* Terminal Intro Return Button or Zoom-Out Button */}
+        {onExitToTerminal && focusMode !== 'close' && focusMode !== 'gallery' && focusMode !== 'game' && focusMode !== 'backrooms' && (
+          <button
+            onClick={onExitToTerminal}
+            className="rounded-full px-3.5 py-1.5 text-xs font-mono uppercase focus:outline-none focus:ring-2 cursor-pointer flex items-center gap-1.5 transition-all duration-150 hover:scale-105 active:scale-95 mt-1"
+            style={{
+              background: "rgba(10, 10, 10, 0.85)",
+              color: "#ffffff",
+              border: "1px solid rgba(255, 255, 255, 0.4)",
+              backdropFilter: "blur(6px)",
+            }}
+            title="Return to Command Prompt"
+          >
+            <span className="text-emerald-400 font-bold">&gt;_</span>
+            <span>TERMINAL</span>
+          </button>
+        )}
 
-      {/* Close-Up Focus Mode: Clean zoom-out button only */}
-      {(focusMode === 'close' || focusMode === 'gallery' || focusMode === 'game') && (
-        <div className="absolute top-4 right-4 z-20">
+        {(focusMode === 'close' || focusMode === 'gallery' || focusMode === 'game' || focusMode === 'backrooms') && (
           <button
             onClick={exitFocus}
-            className="flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-mono tracking-wider uppercase transition-all duration-150 hover:scale-105 active:scale-95 cursor-pointer"
+            className="flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-mono tracking-wider uppercase transition-all duration-150 hover:scale-105 active:scale-95 cursor-pointer mt-1"
             style={{
               background: "rgba(10, 15, 20, 0.85)",
               color: "#ffc070",
@@ -4943,11 +5991,11 @@ export default function SciFiCockpit({ onExitToTerminal }) {
           >
             <span>[ ESC // ZOOM OUT ]</span>
           </button>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Hover tip when hovering over the clickable main computer monitor */}
-      {hovered && focusMode !== 'close' && focusMode !== 'gallery' && focusMode !== 'game' && (
+      {hovered && focusMode !== 'close' && focusMode !== 'gallery' && focusMode !== 'game' && focusMode !== 'backrooms' && (
         <div
           className="pointer-events-none absolute bottom-16 left-1/2 -translate-x-1/2 flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-mono tracking-wider uppercase animate-pulse z-20"
           style={{
@@ -4963,8 +6011,29 @@ export default function SciFiCockpit({ onExitToTerminal }) {
         </div>
       )}
 
+      {/* Hover tip when hovering over the 3D Backrooms FPS monitor */}
+      {hoveredBackrooms && !hovered && (
+        <div
+          className="pointer-events-none absolute bottom-16 left-1/2 -translate-x-1/2 flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-mono tracking-wider uppercase animate-pulse z-20"
+          style={{
+            background: "rgba(20, 16, 4, 0.94)",
+            color: "#facc15",
+            border: "1px solid rgba(250, 204, 21, 0.7)",
+            boxShadow: "0 0 18px rgba(250, 204, 21, 0.35)",
+            backdropFilter: "blur(6px)",
+          }}
+        >
+          <span className="text-red-400">⚠</span>
+          <span>
+            {focusMode === 'backrooms'
+              ? "THE BACKROOMS FPS // W A S D OR ARROWS TO MOVE • CLICK OR SPACE TO SHOOT RAMY ENTITIES"
+              : "THE BACKROOMS 3D FPS // CLICK MONITOR TO PLAY"}
+          </span>
+        </div>
+      )}
+
       {/* Hover tip when hovering over the Arcade Space Game monitor */}
-      {hoveredGame && !hovered && (
+      {hoveredGame && !hovered && !hoveredBackrooms && (
         <div
           className="pointer-events-none absolute bottom-16 left-1/2 -translate-x-1/2 flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-mono tracking-wider uppercase animate-pulse z-20"
           style={{
@@ -5016,7 +6085,7 @@ export default function SciFiCockpit({ onExitToTerminal }) {
           backdropFilter: "blur(6px)"
         }}
       >
-        {(focusMode === 'close' || focusMode === 'gallery' || focusMode === 'game') ? (
+        {(focusMode === 'close' || focusMode === 'gallery' || focusMode === 'game' || focusMode === 'backrooms') ? (
           <span>Press ESC or click outside to zoom out</span>
         ) : focusMode === 'medium' ? (
           <span>Click any monitor to zoom in • Click outside to zoom out</span>
