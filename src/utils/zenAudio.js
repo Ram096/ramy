@@ -16,6 +16,41 @@ export const PLAYLIST_TRACKS = [
     display: 'Bienvenidos a la Tierra — Rawayana',
     src: 'bienvenidos.m4a',
   },
+  {
+    id: 'buriedalive',
+    title: 'Buried Alive',
+    artist: 'Avenged Sevenfold',
+    display: 'Buried Alive — Avenged Sevenfold',
+    src: 'buriedalive.m4a',
+  },
+  {
+    id: 'aerials',
+    title: 'Aerials',
+    artist: 'System Of A Down',
+    display: 'Aerials — System Of A Down',
+    src: 'aerials.m4a',
+  },
+  {
+    id: 'ifollowrivers',
+    title: 'I Follow Rivers (The Magician Remix)',
+    artist: 'Lykke Li, The Magician',
+    display: 'I Follow Rivers (The Magician Remix) — Lykke Li, The Magician',
+    src: 'ifollowrivers.m4a',
+  },
+  {
+    id: 'goodriddance',
+    title: 'Good Riddance (Time of Your Life)',
+    artist: 'Green Day',
+    display: 'Good Riddance (Time of Your Life) — Green Day',
+    src: 'goodriddance.m4a',
+  },
+  {
+    id: 'waitaminute',
+    title: 'Wait a Minute!',
+    artist: 'WILLOW',
+    display: 'Wait a Minute! — WILLOW',
+    src: 'waitaminute.m4a',
+  },
 ]
 
 class MusicPlayerEngine {
