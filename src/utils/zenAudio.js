@@ -51,6 +51,13 @@ export const PLAYLIST_TRACKS = [
     display: 'Wait a Minute! — WILLOW',
     src: 'waitaminute.m4a',
   },
+  {
+    id: 'pedirsumano',
+    title: 'A Pedir Su Mano',
+    artist: 'Juan Luis Guerra 4.40',
+    display: 'A Pedir Su Mano — Juan Luis Guerra',
+    src: 'pedirsumano.m4a',
+  },
 ]
 
 class MusicPlayerEngine {
